@@ -1,0 +1,366 @@
+# Copyright (C) 2026 bnjmnrsh
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: RAN Turnstile for Jetpack Forms 0.1.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/ran-turnstile-for-jetpack-forms\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-07-18T20:00:25+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: ran-turnstile-for-jetpack-forms\n"
+
+#. Plugin Name of the plugin
+#: ran-turnstile-for-jetpack-forms.php
+#: includes/Admin.php:37
+#: includes/Admin.php:133
+msgid "RAN Turnstile for Jetpack Forms"
+msgstr ""
+
+#. Description of the plugin
+#: ran-turnstile-for-jetpack-forms.php
+msgid "Adds Cloudflare Turnstile protection to one selected Jetpack contact form."
+msgstr ""
+
+#. Author of the plugin
+#: ran-turnstile-for-jetpack-forms.php
+msgid "bnjmnrsh"
+msgstr ""
+
+#. Author URI of the plugin
+#: ran-turnstile-for-jetpack-forms.php
+msgid "https://github.com/RocketsAreNostalgic/"
+msgstr ""
+
+#: includes/Admin.php:38
+#: includes/HealthCheck.php:53
+msgid "RAN Turnstile"
+msgstr ""
+
+#: includes/Admin.php:65
+msgid "Settings"
+msgstr ""
+
+#: includes/Admin.php:83
+msgid "RAN Turnstile is paused to prevent duplicate widgets."
+msgstr ""
+
+#: includes/Admin.php:84
+msgid "RAN Octopus Forms is active with its Turnstile feature enabled. Disable Turnstile in RAN Octopus Forms before enabling this plugin’s runtime protection."
+msgstr ""
+
+#: includes/Admin.php:134
+msgid "Protect exactly one selected Jetpack contact form with Cloudflare Turnstile."
+msgstr ""
+
+#: includes/Admin.php:136
+#: includes/HealthCheck.php:110
+#: includes/HealthCheck.php:115
+msgid "Turnstile validation"
+msgstr ""
+
+#: includes/Admin.php:137
+msgctxt "settings help link separator"
+msgid "|"
+msgstr ""
+
+#: includes/Admin.php:138
+msgid "Turnstile testing keys"
+msgstr ""
+
+#: includes/Admin.php:142
+msgid "Runtime protection is paused because RAN Octopus Forms still has Turnstile enabled. Disable the old feature before cutover; otherwise both plugins would render and validate a widget."
+msgstr ""
+
+#: includes/Admin.php:148
+msgid "Jetpack form"
+msgstr ""
+
+#: includes/Admin.php:151
+#: includes/HealthCheck.php:66
+msgid "Contact page"
+msgstr ""
+
+#: includes/Admin.php:153
+msgid "The page must contain exactly one Jetpack contact form. Existing RAN Octopus Forms form markers remain compatible."
+msgstr ""
+
+#: includes/Admin.php:159
+msgid "Cloudflare Turnstile"
+msgstr ""
+
+#: includes/Admin.php:162
+msgid "Enable Turnstile protection"
+msgstr ""
+
+#: includes/Admin.php:165
+msgid "Site key"
+msgstr ""
+
+#: includes/Admin.php:169
+msgid "Secret key"
+msgstr ""
+
+#: includes/Admin.php:171
+msgid "Leave blank to keep the existing stored secret."
+msgstr ""
+
+#: includes/Admin.php:174
+msgid "Local testing"
+msgstr ""
+
+#: includes/Admin.php:179
+msgid "Save settings"
+msgstr ""
+
+#: includes/Admin.php:183
+msgid "Troubleshooting"
+msgstr ""
+
+#: includes/Admin.php:185
+msgid "Runs safe diagnostics without sending mail, submitting a form, or creating feedback posts. Cloudflare validation occurs only when you press the button."
+msgstr ""
+
+#: includes/Admin.php:191
+#: includes/Admin.php:195
+msgid "Run health check"
+msgstr ""
+
+#: includes/Admin.php:208
+msgid "Sorry, you are not allowed to run this health check."
+msgstr ""
+
+#: includes/Admin.php:228
+msgid "Not configured"
+msgstr ""
+
+#: includes/Admin.php:238
+msgid "Localhost test keys"
+msgstr ""
+
+#: includes/Admin.php:240
+msgid "For local development, use Cloudflare’s test keys. The setup button saves the always-pass pair and enables Turnstile."
+msgstr ""
+
+#: includes/Admin.php:241
+msgid "Set up local dev"
+msgstr ""
+
+#: includes/Admin.php:242
+msgid "Always-pass site key"
+msgstr ""
+
+#: includes/Admin.php:243
+msgid "Always-pass secret key"
+msgstr ""
+
+#: includes/Admin.php:244
+msgid "Always-pass test keys are blocked when WordPress reports a production environment."
+msgstr ""
+
+#: includes/Admin.php:245
+msgid "Always-fail site key"
+msgstr ""
+
+#: includes/Admin.php:246
+msgid "Always-fail secret key"
+msgstr ""
+
+#: includes/Admin.php:247
+msgid "Use the always-fail pair only when testing validation errors, failed health checks, and visitor retry messaging."
+msgstr ""
+
+#. translators: %s: health-check status.
+#: includes/Admin.php:267
+#, php-format
+msgid "Latest result: %s"
+msgstr ""
+
+#: includes/Admin.php:269
+msgid "Check"
+msgstr ""
+
+#: includes/Admin.php:269
+msgid "Status"
+msgstr ""
+
+#: includes/Admin.php:269
+msgid "Detail"
+msgstr ""
+
+#: includes/Admin.php:274
+msgid "FAIL"
+msgstr ""
+
+#: includes/HealthCheck.php:53
+msgid "RAN Turnstile for Jetpack Forms is loaded."
+msgstr ""
+
+#: includes/HealthCheck.php:53
+msgid "The plugin is not loaded correctly."
+msgstr ""
+
+#: includes/HealthCheck.php:54
+msgid "Jetpack Forms"
+msgstr ""
+
+#: includes/HealthCheck.php:54
+msgid "Jetpack Forms is available."
+msgstr ""
+
+#: includes/HealthCheck.php:54
+msgid "Jetpack Forms is not available."
+msgstr ""
+
+#: includes/HealthCheck.php:55
+msgid "Duplicate protection"
+msgstr ""
+
+#: includes/HealthCheck.php:55
+msgid "The old RAN Octopus Forms Turnstile feature is not running."
+msgstr ""
+
+#: includes/HealthCheck.php:55
+msgid "RAN Octopus Forms still has Turnstile enabled. Disable its Turnstile feature before using this plugin."
+msgstr ""
+
+#: includes/HealthCheck.php:66
+msgid "The selected contact page is published."
+msgstr ""
+
+#: includes/HealthCheck.php:66
+msgid "Select a published contact page."
+msgstr ""
+
+#: includes/HealthCheck.php:69
+msgid "Jetpack form count"
+msgstr ""
+
+#: includes/HealthCheck.php:70
+msgid "The selected page contains exactly one Jetpack contact form."
+msgstr ""
+
+#. translators: %d: number of Jetpack contact forms found.
+#: includes/HealthCheck.php:73
+#, php-format
+msgid "The selected page contains %d Jetpack contact forms; exactly one is required."
+msgstr ""
+
+#: includes/HealthCheck.php:88
+msgid "Turnstile"
+msgstr ""
+
+#: includes/HealthCheck.php:88
+msgid "Turnstile is disabled."
+msgstr ""
+
+#: includes/HealthCheck.php:92
+msgid "Turnstile site key"
+msgstr ""
+
+#: includes/HealthCheck.php:92
+msgid "A site key is present."
+msgstr ""
+
+#: includes/HealthCheck.php:92
+msgid "The site key is missing."
+msgstr ""
+
+#: includes/HealthCheck.php:93
+msgid "Turnstile secret key"
+msgstr ""
+
+#: includes/HealthCheck.php:93
+msgid "A secret key is present."
+msgstr ""
+
+#: includes/HealthCheck.php:93
+msgid "The secret key is missing."
+msgstr ""
+
+#: includes/HealthCheck.php:101
+msgid "Environment safety"
+msgstr ""
+
+#: includes/HealthCheck.php:101
+msgid "Cloudflare always-pass test keys are blocked in a production environment."
+msgstr ""
+
+#: includes/HealthCheck.php:110
+msgid "No token was submitted. Run the health check after the widget loads."
+msgstr ""
+
+#: includes/HealthCheck.php:115
+msgid "Cloudflare accepted the configured key pair and token."
+msgstr ""
+
+#: includes/HealthCheck.php:125
+#: includes/HealthCheck.php:131
+msgid "Frontend render"
+msgstr ""
+
+#: includes/HealthCheck.php:125
+msgid "The selected page URL is unavailable."
+msgstr ""
+
+#: includes/HealthCheck.php:137
+msgid "Contact page response"
+msgstr ""
+
+#: includes/HealthCheck.php:137
+msgid "The contact page returns HTTP 200."
+msgstr ""
+
+#: includes/HealthCheck.php:137
+msgid "The contact page did not return HTTP 200."
+msgstr ""
+
+#: includes/HealthCheck.php:138
+msgid "Rendered Jetpack form"
+msgstr ""
+
+#: includes/HealthCheck.php:138
+msgid "The rendered page includes a Jetpack contact form."
+msgstr ""
+
+#: includes/HealthCheck.php:138
+msgid "The rendered page is missing the Jetpack contact form."
+msgstr ""
+
+#: includes/HealthCheck.php:139
+msgid "Rendered Turnstile"
+msgstr ""
+
+#: includes/HealthCheck.php:139
+msgid "The rendered widget state matches the settings."
+msgstr ""
+
+#: includes/HealthCheck.php:139
+msgid "Turnstile is enabled but the widget is missing."
+msgstr ""
+
+#. translators: %d: number of Jetpack contact forms found.
+#: includes/Settings.php:130
+#, php-format
+msgid "Cannot save settings: the selected page contains %d Jetpack contact forms. RAN Turnstile for Jetpack Forms requires exactly one."
+msgstr ""
+
+#: includes/Turnstile.php:78
+msgid "Verification is not configured correctly. Please contact the site administrator."
+msgstr ""
+
+#: includes/Turnstile.php:98
+msgid "Verification is required. Please try again."
+msgstr ""
+
+#: includes/Turnstile.php:121
+msgid "Verification could not be completed. Please try again."
+msgstr ""
+
+#: includes/Turnstile.php:130
+msgid "Verification failed. Please try again."
+msgstr ""
