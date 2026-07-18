@@ -44,8 +44,10 @@ an output directory is supplied.
 
 Use Conventional Commits with one coherent change per commit. `fix:` produces
 a patch release, `feat:` produces a minor release, and `!` or a
-`BREAKING CHANGE` footer produces a major release. Use non-releasable types such
-as `docs:`, `test:`, `build:`, `ci:`, or `chore:` when appropriate.
+`BREAKING CHANGE` footer produces a major release. Use types such as `docs:`,
+`test:`, `build:`, `ci:`, or `chore:` when they accurately describe the work,
+but do not assume they will suppress a release PR. Review Release Please's
+generated version and changelog before merging.
 
 The plugin header and runtime version constant in
 `ran-turnstile-for-jetpack-forms.php`, the `readme.txt` stable tag, the POT

@@ -23,8 +23,11 @@ The release bump is derived from Conventional Commits:
 - `feat:` requests a minor release; and
 - `!` or a `BREAKING CHANGE` footer requests a major release.
 
-Other types such as `docs:`, `test:`, `build:`, `ci:`, and `chore:` do not by
-themselves request a release.
+Other types such as `docs:`, `test:`, `build:`, `ci:`, and `chore:` classify
+non-feature work, but the configured PHP release strategy can still include
+them in a patch release, particularly immediately after the bootstrap
+boundary. Treat the generated release PR as a proposal to review, not as proof
+that the requested version is correct.
 
 Before merging the release PR:
 
