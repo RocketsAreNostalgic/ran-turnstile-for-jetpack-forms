@@ -1,0 +1,27 @@
+{
+	"$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+	"bootstrap-sha": "caa81748fac16701f5699cb9fb5de8e8837136c5",
+	"packages": {
+		".": {
+			"release-type": "php",
+			"package-name": "ran-turnstile-for-jetpack-forms",
+			"changelog-path": "CHANGELOG.md",
+			"include-component-in-tag": false,
+			"include-v-in-tag": true,
+			"extra-files": [
+				{
+					"type": "generic",
+					"path": "ran-turnstile-for-jetpack-forms.php"
+				},
+				{
+					"type": "generic",
+					"path": "readme.txt"
+				},
+				{
+					"type": "generic",
+					"path": "languages/ran-turnstile-for-jetpack-forms.pot"
+				}
+			]
+		}
+	}
+}

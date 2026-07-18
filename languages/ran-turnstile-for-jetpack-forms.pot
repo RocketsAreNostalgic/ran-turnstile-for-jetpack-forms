@@ -2,7 +2,9 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
+"X-Release-Please-Start: x-release-please-start-version\n"
 "Project-Id-Version: RAN Turnstile for Jetpack Forms 0.1.0\n"
+"X-Release-Please-End: x-release-please-end\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/ran-turnstile-for-jetpack-forms\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"

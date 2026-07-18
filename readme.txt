@@ -3,7 +3,9 @@ Contributors: bnjmnrsh
 Tags: cloudflare, turnstile, jetpack, forms, spam
 Requires at least: 6.5
 Requires PHP: 8.0
+X-Release-Please-Start-Version: x-release-please-start-version
 Stable tag: 0.1.0
+X-Release-Please-End: x-release-please-end
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +69,21 @@ The `ran_turnstile_for_jetpack_forms_widget_appearance` filter receives the
 default appearance and a context containing `form_id` and `form_hash`. It may
 return only `always` or `interaction-only`. It affects frontend appearance only
 and is not applied to the always-visible troubleshooting widget.
+
+== External services ==
+
+This plugin uses Cloudflare Turnstile to verify whether a form submission is
+likely to come from a human. It loads Cloudflare's Turnstile `api.js` in the
+visitor's browser and sends the resulting verification token, together with the
+validated visitor IP address when available, to Cloudflare's Siteverify API.
+
+See the [Cloudflare Turnstile documentation](https://developers.cloudflare.com/turnstile/),
+[Cloudflare Privacy Policy](https://www.cloudflare.com/privacypolicy/), and
+[Cloudflare Terms](https://www.cloudflare.com/website-terms/).
+
+Jetpack Forms is required. Jetpack may process or store form submissions under
+its own terms; see the [Jetpack Privacy Center](https://jetpack.com/support/privacy/)
+and [Automattic Terms of Service](https://wordpress.com/tos/).
 
 == Installation ==
 

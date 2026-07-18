@@ -1,0 +1,122 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-phpunit:
+    name: PHP ${{ matrix.php }} / WordPress ${{ matrix.wordpress }} / Jetpack ${{ matrix.jetpack }}
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: wordpress_test
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: '8.0'
+            wordpress: '6.5'
+            jetpack: '13.3.1'
+          - php: '8.5'
+            wordpress: 'latest'
+            jetpack: 'latest'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2, wp-cli
+      - run: composer install --no-interaction --prefer-dist
+      - name: Check PHP syntax
+        run: find . -path './vendor' -prune -o -type f -name '*.php' -exec php -l {} \;
+      - run: composer run phpcs
+      - name: Check JavaScript syntax
+        run: |
+          node --check assets/turnstile.js
+          node --check scripts/make-pot.mjs
+      - name: Verify generated translation template
+        run: |
+          node scripts/make-pot.mjs
+          git diff --exit-code -- languages/ran-turnstile-for-jetpack-forms.pot
+      - name: Install WordPress test suite
+        run: bash scripts/install-wp-tests.sh wordpress_test root root 127.0.0.1 ${{ matrix.wordpress }}
+      - name: Run WordPress integration tests
+        run: WP_TESTS_DIR=/tmp/wordpress-tests-lib composer run test
+      - name: Install and activate the release ZIP in fresh WordPress
+        run: |
+          release_dir="/tmp/ran-turnstile-release-${{ matrix.php }}"
+          sh scripts/build-release.sh "$release_dir"
+          fresh_root="/tmp/ran-turnstile-release-wordpress-${{ matrix.php }}"
+          wp_version='${{ matrix.wordpress }}'
+          if [ "$wp_version" = 'latest' ]; then
+            wp core download --path="$fresh_root"
+          else
+            wp core download --path="$fresh_root" --version="$wp_version"
+          fi
+          wp config create --path="$fresh_root" --dbname=ran_turnstile_release --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --skip-check
+          wp db create --path="$fresh_root"
+          wp core install --path="$fresh_root" --url=http://localhost --title='RAN Turnstile release test' --admin_user=admin --admin_password=release-test-password --admin_email=admin@example.test
+          jetpack_version='${{ matrix.jetpack }}'
+          if [ "$jetpack_version" = 'latest' ]; then
+            wp plugin install jetpack --path="$fresh_root" --activate
+          else
+            wp plugin install jetpack --version="$jetpack_version" --path="$fresh_root" --activate
+          fi
+          archive=$(sh scripts/release-archive-path.sh "$release_dir")
+          wp plugin install "$archive" --path="$fresh_root" --activate
+          wp plugin is-active ran-turnstile-for-jetpack-forms --path="$fresh_root"
+
+  plugin-check-and-release:
+    name: Plugin Check and release artifact
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+          tools: composer:v2, wp-cli
+      - run: composer install --no-interaction --prefer-dist
+      - run: sh scripts/build-release.sh
+      - run: mkdir plugin-check-build && unzip -q "$(sh scripts/release-archive-path.sh)" -d plugin-check-build
+      - uses: wordpress/plugin-check-action@v1
+        with:
+          build-dir: ./plugin-check-build/ran-turnstile-for-jetpack-forms
+      - name: Verify release archive content
+        run: |
+          archive=$(sh scripts/release-archive-path.sh)
+          unzip -t "$archive"
+          unzip -Z1 "$archive" | grep -qx 'ran-turnstile-for-jetpack-forms/ran-turnstile-for-jetpack-forms.php'
+          if unzip -Z1 "$archive" | grep -Eq '^ran-turnstile-for-jetpack-forms/(vendor|tests|scripts|\.git|\.github|\.dex)(/|$)'; then
+            echo 'Release archive contains development-only files.' >&2
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ran-turnstile-for-jetpack-forms-${{ github.sha }}
+          path: dist/*.zip
+          if-no-files-found: error

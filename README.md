@@ -49,6 +49,20 @@ define( 'RAN_TURNSTILE_FOR_JETPACK_FORMS_SITE_KEY', '...' );
 define( 'RAN_TURNSTILE_FOR_JETPACK_FORMS_SECRET_KEY', '...' );
 ```
 
+## External services
+
+Jetpack Forms is a required plugin dependency. When protection is enabled and a
+Jetpack form renders, the visitor's browser loads Cloudflare's Turnstile script.
+On submission, this plugin sends the Turnstile response token and, when present
+and valid, the visitor's remote IP address to Cloudflare's Siteverify endpoint.
+The troubleshooting health check contacts the same service only when an
+administrator runs it.
+
+See [THIRD-PARTY.md](THIRD-PARTY.md) for the technical service and dependency
+inventory. Site operators should review the providers' current documentation
+and decide what disclosures are appropriate for their site before enabling the
+integration.
+
 ## Runtime design
 
 - Every rendered Jetpack form is protected while the plugin is enabled.
@@ -140,12 +154,30 @@ explicit compatibility mechanism for those cases.
 Supported baseline: WordPress 6.5+ and PHP 8.0+.
 
 ```sh
-composer install
+composer install --no-interaction
+composer validate --strict
 composer run phpcs
+node --check assets/turnstile.js
+node --check scripts/make-pot.mjs
+node scripts/make-pot.mjs
 WP_TESTS_DIR=/path/to/wordpress-tests-lib composer run test
-wp i18n make-pot . languages/ran-turnstile-for-jetpack-forms.pot \
-  --domain=ran-turnstile-for-jetpack-forms --exclude=vendor,tests
+sh scripts/build-release.sh
 ```
+
+The build script creates
+`dist/ran-turnstile-for-jetpack-forms-<Version>.zip` from the explicit
+[release allowlist](release-contents.txt). It runs the focused source and
+generated-file checks, validates the archive, and refuses to overwrite an
+existing ZIP. Pass another output directory as its first argument when needed.
+
+## Releases
+
+Release Please maintains release PRs from Conventional Commits on `main`.
+Merging a release PR creates the version tag and GitHub Release; it does not
+publish to WordPress.org or deploy to a WordPress site. See
+[RELEASE.md](RELEASE.md) for the lifecycle and
+[PRE-RELEASE-CHECKLIST.md](PRE-RELEASE-CHECKLIST.md) for the product-specific
+release gate.
 
 ## Support and contributing
 
@@ -153,4 +185,4 @@ Report reproducible issues at
 [RocketsAreNostalgic/ran-turnstile-for-jetpack-forms](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues).
 Include the relevant coding-standards and test output with changes.
 
-Release automation is not configured yet.
+Use Conventional Commits so Release Please can classify the next version.
