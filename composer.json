@@ -1,8 +1,12 @@
 {
 	"name": "rocketsarenostalgic/ran-turnstile-for-jetpack-forms",
-	"description": "Cloudflare Turnstile protection for one selected Jetpack contact form.",
+	"description": "Site-wide Cloudflare Turnstile protection for Jetpack forms.",
 	"type": "wordpress-plugin",
 	"license": "GPL-2.0-or-later",
+	"homepage": "https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms",
+	"support": {
+		"issues": "https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues"
+	},
 	"require": {
 		"php": ">=8.0"
 	},

@@ -24,9 +24,8 @@ final class HealthCheck {
 	public static function run( $turnstile_token = '' ) {
 		$checks  = array_merge(
 			self::check_runtime(),
-			self::check_target(),
+			self::check_coverage(),
 			self::check_turnstile( $turnstile_token ),
-			self::check_frontend_render()
 		);
 		$overall = 'pass';
 
@@ -56,25 +55,21 @@ final class HealthCheck {
 		);
 	}
 
-	/** Check selected page and unique form. */
-	private static function check_target() {
-		$page_id = Settings::get_contact_page_id();
-		$post    = 0 < $page_id ? get_post( $page_id ) : null;
-		$count   = 0 < $page_id ? Settings::get_contact_form_count_for_page( $page_id ) : 0;
+	/** Check the site-wide coverage state. */
+	private static function check_coverage() {
+		if ( ! Settings::is_turnstile_enabled() ) {
+			return array( self::row( 'skipped', __( 'Jetpack Forms coverage', 'ran-turnstile-for-jetpack-forms' ), __( 'Site-wide Turnstile protection is disabled.', 'ran-turnstile-for-jetpack-forms' ) ) );
+		}
 
-		return array(
-			self::status( $post instanceof \WP_Post && 'publish' === $post->post_status, __( 'Contact page', 'ran-turnstile-for-jetpack-forms' ), __( 'The selected contact page is published.', 'ran-turnstile-for-jetpack-forms' ), __( 'Select a published contact page.', 'ran-turnstile-for-jetpack-forms' ) ),
-			self::status(
-				1 === $count,
-				__( 'Jetpack form count', 'ran-turnstile-for-jetpack-forms' ),
-				__( 'The selected page contains exactly one Jetpack contact form.', 'ran-turnstile-for-jetpack-forms' ),
-				sprintf(
-					/* translators: %d: number of Jetpack contact forms found. */
-					__( 'The selected page contains %d Jetpack contact forms; exactly one is required.', 'ran-turnstile-for-jetpack-forms' ),
-					$count
-				)
-			),
-		);
+		if ( Settings::has_legacy_runtime_conflict() ) {
+			return array( self::row( 'error', __( 'Jetpack Forms coverage', 'ran-turnstile-for-jetpack-forms' ), __( 'Site-wide protection is paused until Turnstile is disabled in RAN Octopus Forms.', 'ran-turnstile-for-jetpack-forms' ) ) );
+		}
+
+		if ( ! Settings::can_use_turnstile() ) {
+			return array( self::row( 'error', __( 'Jetpack Forms coverage', 'ran-turnstile-for-jetpack-forms' ), __( 'Site-wide protection cannot run until valid Turnstile keys are configured.', 'ran-turnstile-for-jetpack-forms' ) ) );
+		}
+
+		return array( self::row( 'pass', __( 'Jetpack Forms coverage', 'ran-turnstile-for-jetpack-forms' ), __( 'All Jetpack forms are protected unless code explicitly excludes a form with the documented filter.', 'ran-turnstile-for-jetpack-forms' ) ) );
 	}
 
 	/**
@@ -115,29 +110,6 @@ final class HealthCheck {
 		$checks[] = self::row( is_wp_error( $result ) ? 'error' : 'pass', __( 'Turnstile validation', 'ran-turnstile-for-jetpack-forms' ), is_wp_error( $result ) ? $result->get_error_message() : __( 'Cloudflare accepted the configured key pair and token.', 'ran-turnstile-for-jetpack-forms' ) );
 
 		return $checks;
-	}
-
-	/** Check rendered page without submitting anything. */
-	private static function check_frontend_render() {
-		$url = get_permalink( Settings::get_contact_page_id() );
-
-		if ( ! $url ) {
-			return array( self::row( 'error', __( 'Frontend render', 'ran-turnstile-for-jetpack-forms' ), __( 'The selected page URL is unavailable.', 'ran-turnstile-for-jetpack-forms' ) ) );
-		}
-
-		$response = wp_remote_get( $url, array( 'timeout' => 10 ) );
-
-		if ( is_wp_error( $response ) ) {
-			return array( self::row( 'error', __( 'Frontend render', 'ran-turnstile-for-jetpack-forms' ), $response->get_error_message() ) );
-		}
-
-		$body = wp_remote_retrieve_body( $response );
-
-		return array(
-			self::status( 200 === wp_remote_retrieve_response_code( $response ), __( 'Contact page response', 'ran-turnstile-for-jetpack-forms' ), __( 'The contact page returns HTTP 200.', 'ran-turnstile-for-jetpack-forms' ), __( 'The contact page did not return HTTP 200.', 'ran-turnstile-for-jetpack-forms' ) ),
-			self::status( false !== strpos( $body, 'jetpack-contact-form' ), __( 'Rendered Jetpack form', 'ran-turnstile-for-jetpack-forms' ), __( 'The rendered page includes a Jetpack contact form.', 'ran-turnstile-for-jetpack-forms' ), __( 'The rendered page is missing the Jetpack contact form.', 'ran-turnstile-for-jetpack-forms' ) ),
-			self::status( ! Settings::can_use_turnstile() || false !== strpos( $body, 'cf-turnstile' ), __( 'Rendered Turnstile', 'ran-turnstile-for-jetpack-forms' ), __( 'The rendered widget state matches the settings.', 'ran-turnstile-for-jetpack-forms' ), __( 'Turnstile is enabled but the widget is missing.', 'ran-turnstile-for-jetpack-forms' ) ),
-		);
 	}
 
 	/** Build a pass/error row. */

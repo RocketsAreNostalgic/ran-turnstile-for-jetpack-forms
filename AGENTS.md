@@ -6,8 +6,12 @@ This directory is the standalone **RAN Turnstile for Jetpack Forms** WordPress
 plugin. Work within this plugin unless a task explicitly expands the scope. The
 supported baseline is WordPress 6.5+ and PHP 8.0+.
 
-The plugin has no upstream repository or release automation yet. Do not create,
-publish, or configure either implicitly.
+The public upstream repository is:
+
+`https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms`
+
+The plugin does not have release automation yet. Do not configure or operate
+release automation implicitly.
 
 ## Workflow
 

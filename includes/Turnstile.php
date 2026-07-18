@@ -12,26 +12,41 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Renders and validates Turnstile for the selected Jetpack contact form.
+ * Renders and validates Turnstile for Jetpack contact forms.
  */
 final class Turnstile {
 	/** Cloudflare Siteverify endpoint. */
 	const SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
+	/** Frontend script handle. */
+	const SCRIPT_HANDLE = 'ran-turnstile-for-jetpack-forms';
+
+	/** Plugin-owned client behavior handle. */
+	const CLIENT_SCRIPT_HANDLE = 'ran-turnstile-for-jetpack-forms-client';
+
+	/** Plugin-specific response field, isolated from other Turnstile integrations. */
+	const RESPONSE_FIELD = 'ran-turnstile-for-jetpack-forms-response';
+
+	/** Posted when another Turnstile widget already occupies the form. */
+	const CONFLICT_FIELD = 'ran-turnstile-for-jetpack-forms-conflict';
+
 	/** Register hooks. */
 	public static function register() {
-		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_script' ) );
-		add_filter( 'jetpack_contact_form_html', array( __CLASS__, 'append_widget' ) );
+		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'register_script' ) );
+		add_filter( 'jetpack_contact_form_html', array( __CLASS__, 'append_widget' ), PHP_INT_MAX );
 		add_filter( 'jetpack_contact_form_is_spam', array( __CLASS__, 'validate_submission' ), 5, 2 );
 	}
 
-	/** Enqueue the widget script on the selected page. */
-	public static function enqueue_script() {
-		if ( ! self::should_render_on_current_page() ) {
-			return;
-		}
-
-		wp_enqueue_script( 'ran-turnstile-for-jetpack-forms', 'https://challenges.cloudflare.com/turnstile/v0/api.js', array(), null, true ); // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- External service script.
+	/** Register the widget script without loading it on pages that have no forms. */
+	public static function register_script() {
+		wp_register_script( self::SCRIPT_HANDLE, 'https://challenges.cloudflare.com/turnstile/v0/api.js', array(), null, true ); // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- External service script.
+		wp_register_script(
+			self::CLIENT_SCRIPT_HANDLE,
+			plugins_url( 'assets/turnstile.js', RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_FILE ),
+			array( self::SCRIPT_HANDLE ),
+			RAN_TURNSTILE_FOR_JETPACK_FORMS_VERSION,
+			true
+		);
 	}
 
 	/**
@@ -41,11 +56,42 @@ final class Turnstile {
 	 * @return string
 	 */
 	public static function append_widget( $form_html ) {
-		if ( ! self::should_render_on_current_page() || ! FormTarget::is_target_form_html( $form_html ) || false !== strpos( $form_html, 'cf-turnstile' ) ) {
+		if ( ! Settings::is_turnstile_enabled() ) {
 			return $form_html;
 		}
 
-		$widget  = self::get_widget_html();
+		$context = self::get_form_context_from_html( $form_html );
+
+		if ( ! self::should_protect_form( $context['form_id'], $context['form_hash'], 'render' ) ) {
+			return $form_html;
+		}
+
+		if ( self::has_class( $form_html, 'ran-turnstile-for-jetpack-forms' ) ) {
+			if ( Settings::can_use_turnstile() ) {
+				self::enqueue_script();
+			}
+
+			return $form_html;
+		}
+
+		if ( self::has_class( $form_html, 'cf-turnstile' ) ) {
+			if ( self::has_input_named( $form_html, self::CONFLICT_FIELD ) ) {
+				return $form_html;
+			}
+
+			return self::insert_before_form_end(
+				$form_html,
+				'<input type="hidden" name="' . esc_attr( self::CONFLICT_FIELD ) . '" value="1" />'
+			);
+		}
+
+		if ( ! Settings::can_use_turnstile() ) {
+			return $form_html;
+		}
+
+		self::enqueue_script();
+
+		$widget  = self::get_widget_html( $context );
 		$count   = 0;
 		$updated = preg_replace( '/<div class="wp-block-button/', $widget . ' <div class="wp-block-button', $form_html, 1, $count );
 
@@ -53,7 +99,7 @@ final class Turnstile {
 			return $updated;
 		}
 
-		return str_replace( '</form>', $widget . '</form>', $form_html );
+		return self::insert_before_form_end( $form_html, $widget );
 	}
 
 	/**
@@ -70,15 +116,25 @@ final class Turnstile {
 			return $is_spam;
 		}
 
-		if ( ! Settings::is_turnstile_enabled() || ! FormTarget::is_target_submission() ) {
+		if ( ! Settings::is_turnstile_enabled() ) {
 			return $is_spam;
+		}
+
+		$context = self::get_submitted_form_context();
+
+		if ( ! self::should_protect_form( $context['form_id'], $context['form_hash'], 'submission' ) ) {
+			return $is_spam;
+		}
+
+		if ( isset( $_POST[ self::CONFLICT_FIELD ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Read-only collision marker; removing it does not bypass token validation.
+			return new \WP_Error( 'ran_turnstile_for_jetpack_forms_conflict', __( 'This form has more than one Turnstile integration configured. Please contact the site administrator.', 'ran-turnstile-for-jetpack-forms' ) );
 		}
 
 		if ( ! Settings::can_use_turnstile() ) {
 			return new \WP_Error( 'ran_turnstile_for_jetpack_forms_misconfigured', __( 'Verification is not configured correctly. Please contact the site administrator.', 'ran-turnstile-for-jetpack-forms' ) );
 		}
 
-		$token = isset( $_POST['cf-turnstile-response'] ) ? sanitize_text_field( wp_unslash( $_POST['cf-turnstile-response'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Jetpack owns submission validation; target nonce was verified above.
+		$token = isset( $_POST[ self::RESPONSE_FIELD ] ) ? sanitize_text_field( wp_unslash( $_POST[ self::RESPONSE_FIELD ] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Jetpack owns submission validation; this filter only reads the Turnstile response.
 
 		$result = self::verify_token( $token );
 
@@ -130,17 +186,127 @@ final class Turnstile {
 		return new \WP_Error( 'ran_turnstile_for_jetpack_forms_failed', __( 'Verification failed. Please try again.', 'ran-turnstile-for-jetpack-forms' ), is_array( $body ) ? $body : array() );
 	}
 
-	/** Get widget HTML. */
-	private static function get_widget_html() {
+	/**
+	 * Get widget HTML.
+	 *
+	 * @param array<string,string> $context Jetpack form identity.
+	 */
+	private static function get_widget_html( $context ) {
 		return sprintf(
-			'<div class="ran-turnstile-for-jetpack-forms"><div class="cf-turnstile" data-sitekey="%s"></div></div>',
-			esc_attr( Settings::get_turnstile_site_key() )
+			'<div class="ran-turnstile-for-jetpack-forms"><div id="%1$s" class="cf-turnstile" data-sitekey="%2$s" data-response-field-name="%3$s" data-appearance="%4$s"></div></div>',
+			esc_attr( wp_unique_id( 'ran-turnstile-widget-' ) ),
+			esc_attr( Settings::get_turnstile_site_key() ),
+			esc_attr( self::RESPONSE_FIELD ),
+			esc_attr( self::get_widget_appearance( $context ) )
 		);
 	}
 
-	/** Whether the current page is eligible for a widget. */
-	private static function should_render_on_current_page() {
-		return Settings::can_use_turnstile() && Settings::has_single_contact_form() && is_page( Settings::get_contact_page_id() );
+	/** Get the validated frontend appearance for one form. */
+	private static function get_widget_appearance( $context ) {
+		$default = Settings::is_turnstile_always_visible() ? 'always' : 'interaction-only';
+
+		/**
+		 * Filters whether one frontend widget is always visible or interaction-only.
+		 *
+		 * @param string              $appearance Either always or interaction-only.
+		 * @param array<string,mixed> $context    Jetpack form identity.
+		 */
+		$appearance = (string) apply_filters( 'ran_turnstile_for_jetpack_forms_widget_appearance', $default, $context );
+
+		return in_array( $appearance, array( 'always', 'interaction-only' ), true ) ? $appearance : $default;
+	}
+
+	/** Enqueue the frontend script after the first protected form renders. */
+	private static function enqueue_script() {
+		if ( ! wp_script_is( self::SCRIPT_HANDLE, 'registered' ) ) {
+			self::register_script();
+		}
+
+		wp_enqueue_script( self::SCRIPT_HANDLE );
+		wp_enqueue_script( self::CLIENT_SCRIPT_HANDLE );
+	}
+
+	/**
+	 * Decide whether this integration protects one form.
+	 *
+	 * Callbacks should make the same deterministic decision during both stages.
+	 * The form hash distinguishes multiple forms that share one post or template.
+	 *
+	 * @param string $form_id   Jetpack form ID.
+	 * @param string $form_hash Jetpack form hash.
+	 * @param string $phase     Either render or submission.
+	 * @return bool
+	 */
+	private static function should_protect_form( $form_id, $form_hash, $phase ) {
+		$context = array(
+			'phase'     => $phase,
+			'form_id'   => $form_id,
+			'form_hash' => $form_hash,
+			'post_id'   => ctype_digit( $form_id ) ? absint( $form_id ) : 0,
+		);
+
+		/**
+		 * Filters whether RAN Turnstile protects a Jetpack form.
+		 *
+		 * @param bool                $protect Whether to render and validate Turnstile.
+		 * @param array<string,mixed> $context Form identity and render/submission phase.
+		 */
+		return (bool) apply_filters( 'ran_turnstile_for_jetpack_forms_should_protect_form', true, $context );
+	}
+
+	/** Get form identity from Jetpack's rendered hidden fields. */
+	private static function get_form_context_from_html( $form_html ) {
+		$context = array(
+			'form_id'   => '',
+			'form_hash' => '',
+		);
+
+		$processor = new \WP_HTML_Tag_Processor( $form_html );
+
+		while ( $processor->next_tag( 'input' ) ) {
+			$name = $processor->get_attribute( 'name' );
+
+			if ( 'contact-form-id' === $name ) {
+				$context['form_id'] = sanitize_text_field( (string) $processor->get_attribute( 'value' ) );
+			} elseif ( 'contact-form-hash' === $name ) {
+				$context['form_hash'] = sanitize_text_field( (string) $processor->get_attribute( 'value' ) );
+			}
+		}
+
+		return $context;
+	}
+
+	/** Get form identity from Jetpack's submitted hidden fields. */
+	private static function get_submitted_form_context() {
+		return array(
+			'form_id'   => isset( $_POST['contact-form-id'] ) ? sanitize_text_field( wp_unslash( $_POST['contact-form-id'] ) ) : '', // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Read-only routing context.
+			'form_hash' => isset( $_POST['contact-form-hash'] ) ? sanitize_text_field( wp_unslash( $_POST['contact-form-hash'] ) ) : '', // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Read-only routing context.
+		);
+	}
+
+	/** Insert plugin markup immediately before the form closes. */
+	private static function insert_before_form_end( $form_html, $markup ) {
+		return str_replace( '</form>', $markup . '</form>', $form_html );
+	}
+
+	/** Whether rendered HTML contains an element with an exact class name. */
+	private static function has_class( $form_html, $class_name ) {
+		$processor = new \WP_HTML_Tag_Processor( $form_html );
+
+		return $processor->next_tag( array( 'class_name' => $class_name ) );
+	}
+
+	/** Whether rendered HTML contains an input with an exact field name. */
+	private static function has_input_named( $form_html, $field_name ) {
+		$processor = new \WP_HTML_Tag_Processor( $form_html );
+
+		while ( $processor->next_tag( 'input' ) ) {
+			if ( $field_name === $processor->get_attribute( 'name' ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/** Get a validated client IP address. */

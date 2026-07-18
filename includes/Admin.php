@@ -131,7 +131,7 @@ final class Admin {
 				.ran-turnstile-status-skipped { color: #646970; }
 			</style>
 			<h1><?php esc_html_e( 'RAN Turnstile for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ); ?></h1>
-			<p><?php esc_html_e( 'Protect exactly one selected Jetpack contact form with Cloudflare Turnstile.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
+			<p><?php esc_html_e( 'Protect every Jetpack form on this site with Cloudflare Turnstile.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
 			<p>
 				<a href="https://developers.cloudflare.com/turnstile/get-started/server-side-validation/"><?php esc_html_e( 'Turnstile validation', 'ran-turnstile-for-jetpack-forms' ); ?></a>
 				<?php echo esc_html_x( '|', 'settings help link separator', 'ran-turnstile-for-jetpack-forms' ); ?>
@@ -145,21 +145,15 @@ final class Admin {
 			<form class="ran-turnstile-settings-form" method="post" action="options.php">
 				<?php settings_fields( 'ran_turnstile_for_jetpack_forms' ); ?>
 				<fieldset class="postbox ran-turnstile-fieldset">
-					<legend class="hndle"><span><?php esc_html_e( 'Jetpack form', 'ran-turnstile-for-jetpack-forms' ); ?></span></legend>
-					<div class="inside">
-						<div class="ran-turnstile-field">
-							<label for="ran-turnstile-contact-page"><?php esc_html_e( 'Contact page', 'ran-turnstile-for-jetpack-forms' ); ?></label>
-							<?php self::page_dropdown( absint( $settings['contact_page_id'] ) ); ?>
-							<p class="description"><?php esc_html_e( 'The page must contain exactly one Jetpack contact form. Existing RAN Octopus Forms form markers remain compatible.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
-						</div>
-					</div>
-				</fieldset>
-
-				<fieldset class="postbox ran-turnstile-fieldset">
 					<legend class="hndle"><span><?php esc_html_e( 'Cloudflare Turnstile', 'ran-turnstile-for-jetpack-forms' ); ?></span></legend>
 					<div class="inside">
 						<div class="ran-turnstile-field">
-							<label><input type="checkbox" name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[turnstile_enabled]" value="1" <?php checked( ! empty( $settings['turnstile_enabled'] ) ); ?> /> <?php esc_html_e( 'Enable Turnstile protection', 'ran-turnstile-for-jetpack-forms' ); ?></label>
+							<label><input type="checkbox" name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[turnstile_enabled]" value="1" <?php checked( ! empty( $settings['turnstile_enabled'] ) ); ?> /> <?php esc_html_e( 'Enable Turnstile protection for all Jetpack forms', 'ran-turnstile-for-jetpack-forms' ); ?></label>
+							<p class="description"><?php esc_html_e( 'Jetpack Akismet can remain enabled. Do not run another Turnstile integration on the same form unless code explicitly excludes that form from this plugin.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
+						</div>
+						<div class="ran-turnstile-field">
+							<label><input type="checkbox" name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[turnstile_always_visible]" value="1" <?php checked( ! empty( $settings['turnstile_always_visible'] ) ); ?> /> <?php esc_html_e( 'Always show the Turnstile widget', 'ran-turnstile-for-jetpack-forms' ); ?></label>
+							<p class="description"><?php esc_html_e( 'Leave off to show the frontend widget only when Cloudflare requires visitor interaction (recommended). This does not change the widget mode configured for the site key in Cloudflare. The troubleshooting widget remains visible.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
 						</div>
 						<div class="ran-turnstile-field">
 							<label for="ran-turnstile-site-key"><?php esc_html_e( 'Site key', 'ran-turnstile-for-jetpack-forms' ); ?></label>
@@ -189,7 +183,7 @@ final class Admin {
 						<?php if ( Settings::can_use_turnstile() && ! Settings::has_legacy_runtime_conflict() ) : ?>
 							<div class="ran-turnstile-health-actions">
 								<input id="ran-turnstile-for-jetpack-forms-run-health-check" class="button button-secondary button-hero" type="submit" value="<?php echo esc_attr__( 'Run health check', 'ran-turnstile-for-jetpack-forms' ); ?>" />
-								<div class="cf-turnstile" data-sitekey="<?php echo esc_attr( Settings::get_turnstile_site_key() ); ?>" data-callback="ranTurnstileForJetpackFormsReady" data-expired-callback="ranTurnstileForJetpackFormsExpired" data-timeout-callback="ranTurnstileForJetpackFormsExpired"></div>
+								<div class="cf-turnstile" data-sitekey="<?php echo esc_attr( Settings::get_turnstile_site_key() ); ?>" data-appearance="always" data-callback="ranTurnstileForJetpackFormsReady" data-expired-callback="ranTurnstileForJetpackFormsExpired" data-timeout-callback="ranTurnstileForJetpackFormsExpired"></div>
 							</div>
 						<?php else : ?>
 							<input id="ran-turnstile-for-jetpack-forms-run-health-check" class="button button-secondary" type="submit" value="<?php echo esc_attr__( 'Run health check', 'ran-turnstile-for-jetpack-forms' ); ?>" />
@@ -216,19 +210,6 @@ final class Admin {
 		set_transient( self::HEALTH_TRANSIENT_PREFIX . get_current_user_id(), $health, 10 * MINUTE_IN_SECONDS );
 		wp_safe_redirect( admin_url( 'options-general.php?page=' . self::PAGE_SLUG . '&ran_turnstile_health=1' ) );
 		exit;
-	}
-
-	/** Render page selector. */
-	private static function page_dropdown( $selected ) {
-		wp_dropdown_pages(
-			array(
-				'name'              => esc_attr( Settings::OPTION_NAME . '[contact_page_id]' ),
-				'id'                => 'ran-turnstile-contact-page',
-				'selected'          => absint( $selected ),
-				'show_option_none'  => esc_html__( 'Not configured', 'ran-turnstile-for-jetpack-forms' ),
-				'option_none_value' => 0,
-			)
-		);
 	}
 
 	/** Render always-pass and always-fail key guidance. */

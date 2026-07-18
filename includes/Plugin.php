@@ -40,7 +40,6 @@ final class Plugin {
 			return;
 		}
 
-		FormTarget::register();
 		Turnstile::register();
 	}
 }

@@ -1,9 +1,11 @@
 # RAN Turnstile for Jetpack Forms
 
-Adds Cloudflare Turnstile to exactly one Jetpack contact form selected by an
-administrator. The plugin owns only Turnstile rendering, server-side validation,
-target-form routing, settings, and safe diagnostics. It does not send email,
-subscribe contacts, or change Jetpack feedback storage.
+Adds Cloudflare Turnstile protection to every Jetpack form on the site. The
+plugin is deliberately a global on/off integration: there is no per-page or
+per-form selection in the admin UI. It owns only Turnstile rendering,
+server-side validation, settings, and safe diagnostics. It does not send email,
+subscribe contacts, change Jetpack feedback storage, or replace Jetpack's spam
+classification.
 
 ## Migration and compatibility
 
@@ -13,19 +15,29 @@ Jetpack Forms. A runtime conflict guard remains for sites that still have an
 older copy of the bundled plugin active during an upgrade.
 
 After activation, review **Settings > RAN Turnstile**, run the Troubleshooting
-health check, confirm one widget appears, and test both an accepted and rejected
-submission.
+health check, confirm a widget appears on each Jetpack form, and test both an
+accepted and rejected submission.
 
 On first activation, when its own option does not exist, this plugin copies
-`contact_page_id`, `turnstile_enabled`, `turnstile_site_key`, and
-`turnstile_secret_key` from `ran_octopus_forms_settings`. The source option is
-never changed or deleted. The existing `ran-octopus-forms-contact-form` block
-class remains supported, so the cutover does not require a content edit.
+`turnstile_enabled`, `turnstile_site_key`, and `turnstile_secret_key` from
+`ran_octopus_forms_settings`. The old `contact_page_id` value is deliberately
+ignored because protection is now site-wide. The source option is never changed
+or deleted. No block class or content edit is required.
 
 ## Configuration
 
-Open **Settings > RAN Turnstile** and select a published page containing exactly
-one Jetpack contact form. Configure Cloudflare keys and enable protection.
+Open **Settings > RAN Turnstile**, configure the Cloudflare keys, and enable
+protection. The setting applies to all Jetpack forms.
+
+Leave **Always show the Turnstile widget** unchecked for the recommended
+frontend behaviour. Turnstile runs when the form renders but stays out of sight
+unless Cloudflare requires visitor interaction. Check it to keep the widget
+visible throughout verification. The troubleshooting widget is always visible.
+
+This setting controls only frontend appearance. The Cloudflare widget mode is
+attached to the site key and remains configured in the Cloudflare dashboard;
+Managed mode is recommended. The plugin deliberately keeps render-time
+execution, automatic retry and refresh, automatic language, and automatic theme.
 
 Cloudflare's always-pass keys are available from the **Set up local dev** button.
 They are blocked when WordPress reports a `production` environment. Always-fail
@@ -39,14 +51,89 @@ define( 'RAN_TURNSTILE_FOR_JETPACK_FORMS_SECRET_KEY', '...' );
 
 ## Runtime design
 
-- The selected page must contain exactly one `jetpack/contact-form` block.
-- Rendering is scoped using the block-render context and either the new
-  `ran-turnstile-for-jetpack-forms-contact-form` marker or the legacy marker.
-- A plugin-owned nonce marks the rendered form and submission.
-- Validation runs at priority 5 on `jetpack_contact_form_is_spam`, before Jetpack
-  accepts the submission.
-- Existing `true` spam state or `WP_Error` is returned unchanged.
+- Every rendered Jetpack form is protected while the plugin is enabled.
+- The Cloudflare script is loaded only after a protected form renders.
+- Frontend widgets default to `interaction-only`; the single visibility toggle
+  can change them to `always`. This does not change the Cloudflare site-key mode.
+- The widget uses a plugin-specific response field so another integration's
+  token cannot accidentally satisfy this plugin's server-side check.
+- Validation runs at priority 5 on `jetpack_contact_form_is_spam`. A successful
+  Turnstile check returns the existing `false` value so Jetpack's later
+  blocklist and Akismet checks can still classify the submission.
+- An existing `true` spam state or `WP_Error` is returned unchanged. A missing,
+  invalid, or unverifiable Turnstile token returns a `WP_Error` and prevents the
+  submission from being accepted.
+- After a failed Jetpack AJAX submission, the browser resets only that form's
+  plugin-owned widget so a retry receives a fresh single-use token.
 - Cloudflare receives a remote IP only after WordPress validates its format.
+
+### Overriding appearance in code
+
+The admin toggle sets the default for every frontend form. Code can make a
+deterministic per-form override with
+`ran_turnstile_for_jetpack_forms_widget_appearance`:
+
+```php
+add_filter(
+	'ran_turnstile_for_jetpack_forms_widget_appearance',
+	static function ( $appearance, $context ) {
+		return 'my-stable-form-hash' === $context['form_hash']
+			? 'always'
+			: $appearance;
+	},
+	10,
+	2
+);
+```
+
+Only `always` and `interaction-only` are accepted. The filter does not alter
+execution, retries, refresh, theme, language, response-field isolation, or the
+always-visible troubleshooting widget.
+
+### Excluding a form in code
+
+There is intentionally no exclusion UI. Use
+`ran_turnstile_for_jetpack_forms_should_protect_form` when another integration
+must own a particular form:
+
+```php
+add_filter(
+	'ran_turnstile_for_jetpack_forms_should_protect_form',
+	static function ( $protect, $context ) {
+		if ( 'my-stable-form-hash' === $context['form_hash'] ) {
+			return false;
+		}
+
+		return $protect;
+	},
+	10,
+	2
+);
+```
+
+The filter runs twice for a protected submission: once with
+`$context['phase'] === 'render'` and again with
+`$context['phase'] === 'submission'`. The context also contains `form_id`,
+`form_hash`, and a numeric `post_id` when Jetpack's form ID represents a post.
+Make the same deterministic decision in both phases, preferably from the stable
+form ID or hash rather than the current URL or request type. Returning `false`
+for every call delegates all Jetpack forms to another protection provider.
+
+### Akismet and other Turnstile integrations
+
+Akismet and Turnstile can run on the same form. They perform different checks:
+Turnstile verifies the interaction, while Akismet evaluates the submitted
+content. A successful Turnstile check deliberately leaves the submission in the
+filter chain for Jetpack and Akismet.
+
+Two Turnstile integrations should not own the same form. If this plugin sees an
+existing `cf-turnstile` widget in Jetpack's rendered form HTML, it does not add a
+second widget. It marks the collision and fails the submission closed with a
+configuration error instead of guessing which token belongs to which provider.
+Use the exclusion filter above to give that form to the other integration, or
+disable one provider. Integrations that inject markup after this plugin's late
+render filter cannot be detected reliably, so the exclusion filter is also the
+explicit compatibility mechanism for those cases.
 
 ## Development
 
@@ -60,4 +147,10 @@ wp i18n make-pot . languages/ran-turnstile-for-jetpack-forms.pot \
   --domain=ran-turnstile-for-jetpack-forms --exclude=vendor,tests
 ```
 
-This package deliberately has no upstream repository or release automation yet.
+## Support and contributing
+
+Report reproducible issues at
+[RocketsAreNostalgic/ran-turnstile-for-jetpack-forms](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues).
+Include the relevant coding-standards and test output with changes.
+
+Release automation is not configured yet.

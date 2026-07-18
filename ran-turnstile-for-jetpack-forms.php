@@ -1,7 +1,8 @@
 <?php
 /**
  * Plugin Name: RAN Turnstile for Jetpack Forms
- * Description: Adds Cloudflare Turnstile protection to one selected Jetpack contact form.
+ * Plugin URI: https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms
+ * Description: Adds site-wide Cloudflare Turnstile protection to Jetpack Forms.
  * Version: 0.1.0
  * Author: bnjmnrsh
  * Author URI: https://github.com/RocketsAreNostalgic/
@@ -25,7 +26,6 @@ define( 'RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_FILE', __FILE__ );
 define( 'RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
 require_once RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR . 'includes/Settings.php';
-require_once RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR . 'includes/FormTarget.php';
 require_once RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR . 'includes/Turnstile.php';
 require_once RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR . 'includes/HealthCheck.php';
 require_once RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR . 'includes/Admin.php';
