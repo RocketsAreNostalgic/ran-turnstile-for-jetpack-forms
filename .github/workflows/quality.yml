@@ -106,6 +106,9 @@ jobs:
       - uses: wordpress/plugin-check-action@v1
         with:
           build-dir: ./plugin-check-build/ran-turnstile-for-jetpack-forms
+          # Turnstile cannot function without Cloudflare's documented runtime
+          # script. Keep every other Plugin Check code active.
+          ignore-codes: PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent
       - name: Verify release archive content
         run: |
           archive=$(sh scripts/release-archive-path.sh)

@@ -1,7 +1,6 @@
 CHANGELOG.md
 LICENSE
 README.md
-THIRD-PARTY.md
 assets/
 includes/
 languages/

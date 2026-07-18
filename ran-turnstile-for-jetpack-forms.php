@@ -8,7 +8,6 @@
  * x-release-please-end
  * Author: bnjmnrsh
  * Author URI: https://github.com/RocketsAreNostalgic/
- * Update URI: https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms
  * Text Domain: ran-turnstile-for-jetpack-forms
  * Domain Path: /languages
  * Requires at least: 6.5
