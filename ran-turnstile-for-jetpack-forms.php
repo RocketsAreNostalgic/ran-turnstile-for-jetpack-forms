@@ -4,7 +4,7 @@
  * Plugin URI: https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms
  * Description: Adds site-wide Cloudflare Turnstile protection to Jetpack Forms.
  * x-release-please-start-version
- * Version: 0.1.0
+ * Version: 0.1.1
  * x-release-please-end
  * Author: bnjmnrsh
  * Author URI: https://github.com/RocketsAreNostalgic/
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // x-release-please-start-version
-define( 'RAN_TURNSTILE_FOR_JETPACK_FORMS_VERSION', '0.1.0' );
+define( 'RAN_TURNSTILE_FOR_JETPACK_FORMS_VERSION', '0.1.1' );
 // x-release-please-end
 define( 'RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_FILE', __FILE__ );
 define( 'RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
