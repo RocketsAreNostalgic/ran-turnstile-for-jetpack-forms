@@ -10,15 +10,26 @@ X-Release-Please-End: x-release-please-end
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Adds Cloudflare Turnstile protection to every Jetpack form on the site.
+Protect every Jetpack form with one straightforward Cloudflare Turnstile setup.
 
 == Description ==
 
-RAN Turnstile for Jetpack Forms renders a Cloudflare Turnstile widget on every
-Jetpack form and validates its token before Jetpack accepts the submission. It
-is deliberately a global on/off integration, with no per-page or per-form
-selection in the admin UI. It includes independent settings, local test-key
-setup, production safeguards, and safe troubleshooting diagnostics.
+RAN Turnstile for Jetpack Forms adds Cloudflare Turnstile to every Jetpack form
+on a site. Configure your keys once, enable protection, and visitors receive a
+lightweight check only when Cloudflare decides one is needed. Jetpack continues
+to handle the form itself and its normal notifications.
+
+It is deliberately a site-wide on/off integration: there is no per-page or
+per-form selection in the admin UI. The plugin includes:
+
+* protection for every rendered Jetpack form;
+* an interaction-only widget by default, with an optional always-visible mode;
+* a focused settings screen, local test-key setup, and troubleshooting
+  diagnostics; and
+* compatibility with Jetpack's later blocklist and Akismet checks.
+
+The plugin validates the Turnstile token before Jetpack accepts the submission.
+It does not replace Jetpack's form processing, notification, or spam controls.
 
 The Cloudflare script loads only when a protected form renders. Server-side
 validation uses a plugin-specific response field and runs before Jetpack's
@@ -85,6 +96,11 @@ See the [Cloudflare Turnstile documentation](https://developers.cloudflare.com/t
 Jetpack Forms is required. Jetpack may process or store form submissions under
 its own terms; see the [Jetpack Privacy Center](https://jetpack.com/support/privacy/)
 and [Automattic Terms of Service](https://wordpress.com/tos/).
+
+== Screenshots ==
+
+1. Site-wide Turnstile settings and the safe troubleshooting panel, using a
+   public local test site key and no production credentials.
 
 == Installation ==
 
