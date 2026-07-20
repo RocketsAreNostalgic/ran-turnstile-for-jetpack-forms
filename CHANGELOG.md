@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.1.1...v0.2.0) (2026-07-20)
+
+
+### Features
+
+* standardize GitHub-backed WordPress.org releases ([5de3958](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/5de395842782ab172c81cf04e164401c4634eec9))
+
 ## [0.1.1](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.1.0...v0.1.1) (2026-07-18)
 
 
