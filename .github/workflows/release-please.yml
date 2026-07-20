@@ -1,25 +1,190 @@
 name: Release Please
 
 on:
-    push:
-        branches:
-            - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing vX.Y.Z GitHub release tag to rebuild
+        required: true
+        type: string
+      deploy:
+        description: Request a protected WordPress.org deployment
+        required: true
+        default: false
+        type: boolean
+      sync_assets:
+        description: Deliberately sync listing artwork to SVN /assets
+        required: true
+        default: false
+        type: boolean
 
 permissions:
-    contents: write
-    issues: write
-    pull-requests: write
+  contents: write
+  issues: write
+  pull-requests: write
 
 concurrency:
-    group: release-please-main
-    cancel-in-progress: false
+  group: release-please-main
+  cancel-in-progress: false
 
 jobs:
-    release-please:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: googleapis/release-please-action@v4
-              with:
-                  token: ${{ secrets.GITHUB_TOKEN }}
-                  config-file: release-please-config.json
-                  manifest-file: .release-please-manifest.json
+  release-please:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  package-release:
+    name: Package release
+    needs: release-please
+    if: ${{ always() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      deployment_enabled: ${{ steps.contract.outputs.enabled }}
+      tag_name: ${{ steps.resolve-tag.outputs.tag_name }}
+    steps:
+      - name: Resolve release tag
+        id: resolve-tag
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          RELEASE_PLEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
+              echo "tag_name=${INPUT_TAG}" >> "${GITHUB_OUTPUT}"
+          else
+              echo "tag_name=${RELEASE_PLEASE_TAG}" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Check out the exact release tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ steps.resolve-tag.outputs.tag_name }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
+        with:
+          php-version: "8.5"
+          extensions: zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Install release dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run release quality gates
+        run: |
+          composer validate --strict
+          composer run phpcs
+          find . -path './vendor' -prune -o -type f -name '*.php' -exec php -l {} \;
+          node --check assets/turnstile.js
+          node --check scripts/make-pot.mjs
+          node scripts/make-pot.mjs
+          git diff --exit-code -- languages/ran-turnstile-for-jetpack-forms.pot
+
+      - name: Build verified release assets
+        id: release
+        shell: bash
+        run: |
+          tag_name="${{ steps.resolve-tag.outputs.tag_name }}"
+          bash scripts/create-release-assets.sh "${tag_name}"
+          version="${tag_name#v}"
+          echo "tag_name=${tag_name}" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Read deployment contract
+        id: contract
+        run: echo "enabled=$(jq -r '.enabled' wordpress-org/deployment.json)" >> "${GITHUB_OUTPUT}"
+
+      - name: Attach verified assets to the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag_name="${{ steps.resolve-tag.outputs.tag_name }}"
+          version="${tag_name#v}"
+          gh release upload "${tag_name}" \
+              "dist/ran-turnstile-for-jetpack-forms-${version}.zip" \
+              "dist/ran-turnstile-for-jetpack-forms-${version}.zip.sha256" \
+              "dist/ran-turnstile-for-jetpack-forms-${version}.manifest.json" \
+              --clobber \
+              --repo "${GITHUB_REPOSITORY}"
+
+  deploy-wordpress-org:
+    name: Deploy to WordPress.org
+    needs: package-release
+    if: >-
+      needs.package-release.result == 'success' &&
+      (
+        (github.event_name == 'push' && needs.package-release.outputs.deployment_enabled == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.deploy)
+      )
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    environment: wordpress-org
+    env:
+      WORDPRESS_ORG_USERNAME: ${{ secrets.WORDPRESS_ORG_USERNAME }}
+      WORDPRESS_ORG_PASSWORD: ${{ secrets.WORDPRESS_ORG_PASSWORD }}
+    steps:
+      - name: Resolve release tag
+        id: resolve-tag
+        shell: bash
+        env:
+          PACKAGE_RELEASE_TAG: ${{ needs.package-release.outputs.tag_name }}
+        run: echo "tag_name=${PACKAGE_RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
+
+      - name: Check out the exact release tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ steps.resolve-tag.outputs.tag_name }}
+
+      - name: Download canonical GitHub release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag_name="${{ steps.resolve-tag.outputs.tag_name }}"
+          version="${tag_name#v}"
+          mkdir -p dist
+          gh release download "${tag_name}" \
+              --pattern "ran-turnstile-for-jetpack-forms-${version}.*" \
+              --dir dist \
+              --repo "${GITHUB_REPOSITORY}"
+
+      - name: Deploy verified release to protected SVN
+        shell: bash
+        run: |
+          tag_name="${{ steps.resolve-tag.outputs.tag_name }}"
+          version="${tag_name#v}"
+          options=()
+          if [[ "${{ github.event_name }}" == 'workflow_dispatch' ]]; then
+              options+=(--allow-disabled)
+          fi
+          if [[ "${{ github.event_name }}" == 'workflow_dispatch' && "${{ inputs.sync_assets }}" == 'true' ]]; then
+              options+=(--sync-assets)
+          fi
+          bash scripts/deploy-wordpress-org.sh \
+              "dist/ran-turnstile-for-jetpack-forms-${version}.zip" \
+              "dist/ran-turnstile-for-jetpack-forms-${version}.zip.sha256" \
+              "dist/ran-turnstile-for-jetpack-forms-${version}.manifest.json" \
+              "${options[@]}"

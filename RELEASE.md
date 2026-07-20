@@ -42,6 +42,11 @@ Merging the release PR creates the `v<version>` tag and GitHub Release. Release
 Please does not build or install the plugin, attach an independently validated
 ZIP, publish to WordPress.org, or deploy a release to any WordPress site.
 
+The release workflow also packages a canonical ZIP, SHA-256 checksum, and JSON
+manifest from the exact tagged release. WordPress.org deployment stays
+disabled in source control until the deployment contract is deliberately
+enabled.
+
 ## Release archive
 
 Build the distributable from a clean checkout of the release candidate:
@@ -54,13 +59,19 @@ sh scripts/build-release.sh
 The script derives the version from the plugin header and creates
 `dist/ran-turnstile-for-jetpack-forms-<Version>.zip`. It copies only entries in
 `release-contents.txt`, runs the focused PHP, JavaScript, coding-standard, and
-POT-freshness checks, verifies the archive, and refuses to overwrite an
-existing file. Use a new output directory or remove a previously reviewed local
-artifact before rebuilding; do not silently replace a release candidate.
+POT-freshness checks, verifies the archive against its exact runtime file list,
+and refuses to overwrite an existing file. It uses fixed ZIP metadata and
+sorted entries so the same source produces the same archive. Use a new output
+directory or remove a previously reviewed local artifact before rebuilding; do
+not silently replace a release candidate.
 
 CI independently runs the supported compatibility lanes, Plugin Check,
 archive verification, and clean-install activation with Jetpack. Downloaded CI
 artifacts are evidence for review, not an automatic deployment channel.
+
+For manual WordPress.org publication, dispatch the release workflow with an
+existing `v<version>` tag. The protected deploy job rebuilds and verifies the
+canonical release assets before touching SVN.
 
 ## WordPress.org publication
 

@@ -18,6 +18,9 @@ behaviour that cannot be established by source checks alone.
 - [ ] GitHub Actions is allowed to create pull requests for Release Please, and
       the release workflow uses the repository `GITHUB_TOKEN` rather than a
       personal token.
+- [ ] The release workflow can also be dispatched manually with an existing
+      `v<version>` tag, but WordPress.org deployment remains disabled until
+      `wordpress-org/deployment.json` is deliberately enabled.
 
 ## Source and archive gates
 
@@ -46,6 +49,8 @@ sh scripts/build-release.sh
       configuration, credentials, caches, logs, and prior release artifacts.
 - [ ] The ZIP filename, embedded plugin header, runtime constant, readme stable
       tag, and POT project version all match the proposed release.
+- [ ] The GitHub release assets include the ZIP, checksum, and sorted JSON
+      manifest for the exact tagged commit.
 - [ ] Install and activate the ZIP in a clean WordPress installation with the
       supported Jetpack version active. Confirm activation produces no PHP
       notices or fatal errors and **Settings > RAN Turnstile** is available.

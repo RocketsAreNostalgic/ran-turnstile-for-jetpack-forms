@@ -168,7 +168,10 @@ The build script creates
 `dist/ran-turnstile-for-jetpack-forms-<Version>.zip` from the explicit
 [release allowlist](release-contents.txt). It runs the focused source and
 generated-file checks, validates the archive, and refuses to overwrite an
-existing ZIP. Pass another output directory as its first argument when needed.
+existing ZIP. It writes fixed ZIP metadata and a sorted file list, so identical
+sources produce an identical archive. It also rejects any missing or unexpected
+runtime file and mismatched version metadata. Pass another output directory as
+its first argument when needed.
 
 ## Releases
 

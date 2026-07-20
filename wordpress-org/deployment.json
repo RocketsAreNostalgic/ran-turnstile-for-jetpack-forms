@@ -1,0 +1,11 @@
+{
+	"schemaVersion": 1,
+	"enabled": false,
+	"wordpressOrgSlug": "",
+	"packageSlug": "ran-turnstile-for-jetpack-forms",
+	"mainPluginFile": "ran-turnstile-for-jetpack-forms.php",
+	"archivePath": "dist/ran-turnstile-for-jetpack-forms-{version}.zip",
+	"buildCommand": "sh scripts/build-release.sh \"$OUTPUT_DIRECTORY\"",
+	"verifyCommand": "sh scripts/verify-release.sh",
+	"listingAssetsDirectory": "wordpress-org/assets"
+}
