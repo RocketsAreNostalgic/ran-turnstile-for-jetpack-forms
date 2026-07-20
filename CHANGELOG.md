@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.2.0...v0.3.0) (2026-07-20)
+
+
+### Features
+
+* add wp-cli to tools in release workflow ([9872034](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/9872034f795860eb6d09c6ef15e2abf1855799cb))
+
 ## [0.2.0](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.1.1...v0.2.0) (2026-07-20)
 
 
