@@ -13,7 +13,7 @@ permissions:
 jobs:
   lint-and-phpunit:
     name: PHP ${{ matrix.php }} / WordPress ${{ matrix.wordpress }} / Jetpack ${{ matrix.jetpack }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     services:
       mysql:
         image: mysql:8.0
@@ -89,7 +89,7 @@ jobs:
 
   plugin-check-and-release:
     name: Plugin Check and release artifact
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v6.0.2
       - uses: actions/setup-node@v6.4.0
