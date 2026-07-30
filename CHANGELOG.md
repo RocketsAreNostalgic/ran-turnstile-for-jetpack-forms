@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.3.0...v0.3.1) (2026-07-30)
+
+
+### Miscellaneous Chores
+
+* **deps:** update WPCS security patch ([8f0392f](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/8f0392fb16b0bc826593fa3cd0722942485b9145))
+
 ## [0.3.0](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.2.0...v0.3.0) (2026-07-20)
 
 
