@@ -9,14 +9,104 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
-  lint-and-phpunit:
+  quality:
+    name: Quality and release artifact
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    outputs:
+      artifact-name: ${{ steps.release.outputs.artifact-name }}
+      matrix: ${{ steps.release.outputs.matrix }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .node-version
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.5'
+          coverage: none
+          extensions: zip
+          tools: composer:v2
+
+      - name: Install PHP development dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run cheap source and generated-file gates
+        run: |
+          composer validate --strict
+          composer run phpcs
+          find . -path './vendor' -prune -o -type f -name '*.php' -exec php -l {} \;
+          node --check assets/turnstile.js
+          node --check scripts/make-pot.mjs
+          node scripts/make-pot.mjs
+          git diff --exit-code -- languages/ran-turnstile-for-jetpack-forms.pot
+          grep -Fq "github.event_name == 'pull_request'" .github/workflows/quality.yml
+          # These single-quoted patterns are literal workflow contracts.
+          # shellcheck disable=SC2016
+          grep -Fq 'git log -1 --format=%H "$RAN_QUALITY_COMMIT" -- .release-please-manifest.json' .github/workflows/release-please.yml
+          # shellcheck disable=SC2016
+          grep -Fq 'git rev-parse "${RAN_QUALITY_COMMIT}^{tree}"' .github/workflows/release-please.yml
+
+      - name: Build and verify the canonical release assets once
+        id: release
+        shell: bash
+        env:
+          RAN_PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          RAN_PR_BASE: ${{ github.event.pull_request.base.ref }}
+          RAN_PR_HEAD: ${{ github.event.pull_request.head.ref }}
+          RAN_PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^[[:space:]]*\*[[:space:]]*Version:[[:space:]]*\([^[:space:]]*\).*$/\1/p' ran-turnstile-for-jetpack-forms.php)"
+          test -n "$version"
+          bash scripts/create-release-assets.sh "v${version}"
+
+          release_candidate=false
+          if [[ "$GITHUB_EVENT_NAME" == pull_request \
+              && "$RAN_PR_AUTHOR" == 'github-actions[bot]' \
+              && "$RAN_PR_BASE" == main \
+              && "$RAN_PR_HEAD" == 'release-please--branches--main--components--ran-turnstile-for-jetpack-forms' \
+              && "$RAN_PR_HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]]; then
+              release_candidate=true
+          fi
+
+          if [[ "$release_candidate" == true ]]; then
+              matrix='{"include":[{"php":"8.5","wordpress":"latest","jetpack":"latest"}]}'
+          else
+              matrix='{"include":[{"php":"8.0","wordpress":"6.5","jetpack":"13.3.1"},{"php":"8.5","wordpress":"latest","jetpack":"latest"}]}'
+          fi
+
+          {
+              printf 'artifact-name=ran-turnstile-for-jetpack-forms-release-%s-%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+              printf 'matrix=%s\n' "$matrix"
+              printf 'version=%s\n' "$version"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload the verified release assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.release.outputs.artifact-name }}
+          path: |
+            dist/ran-turnstile-for-jetpack-forms-${{ steps.release.outputs.version }}.zip
+            dist/ran-turnstile-for-jetpack-forms-${{ steps.release.outputs.version }}.zip.sha256
+            dist/ran-turnstile-for-jetpack-forms-${{ steps.release.outputs.version }}.manifest.json
+          if-no-files-found: error
+          retention-days: 7
+
+  compatibility:
     name: PHP ${{ matrix.php }} / WordPress ${{ matrix.wordpress }} / Jetpack ${{ matrix.jetpack }}
+    needs: quality
     runs-on: blacksmith-2vcpu-ubuntu-2404
     services:
       mysql:
@@ -33,97 +123,86 @@ jobs:
           --health-retries=5
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - php: '8.0'
-            wordpress: '6.5'
-            jetpack: '13.3.1'
-          - php: '8.5'
-            wordpress: 'latest'
-            jetpack: 'latest'
+      matrix: ${{ fromJSON(needs.quality.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: actions/setup-node@v6.4.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          node-version-file: .node-version
-      - uses: shivammathur/setup-php@v2
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: ${{ matrix.php }}
           coverage: none
+          extensions: mysqli, zip
           tools: composer:v2, wp-cli
-      - run: composer install --no-interaction --prefer-dist
-      - name: Check PHP syntax
-        run: find . -path './vendor' -prune -o -type f -name '*.php' -exec php -l {} \;
-      - run: composer run phpcs
-      - name: Check JavaScript syntax
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Download the canonical release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.quality.outputs.artifact-name }}
+          path: dist
+
+      - name: Verify the shared archive identity
+        shell: bash
         run: |
-          node --check assets/turnstile.js
-          node --check scripts/make-pot.mjs
-      - name: Verify generated translation template
-        run: |
-          node scripts/make-pot.mjs
-          git diff --exit-code -- languages/ran-turnstile-for-jetpack-forms.pot
+          set -euo pipefail
+          archive="dist/ran-turnstile-for-jetpack-forms-${{ needs.quality.outputs.version }}.zip"
+          manifest="dist/ran-turnstile-for-jetpack-forms-${{ needs.quality.outputs.version }}.manifest.json"
+          test "$(jq -er '.commit' "$manifest")" = "$GITHUB_SHA"
+          test "$(jq -er '.version' "$manifest")" = '${{ needs.quality.outputs.version }}'
+          (cd dist && sha256sum --check --strict "$(basename "$archive").sha256")
+          unzip -tqq "$archive"
+
       - name: Install WordPress test suite
         run: bash scripts/install-wp-tests.sh wordpress_test root root 127.0.0.1 ${{ matrix.wordpress }}
+
       - name: Run WordPress integration tests
         run: WP_TESTS_DIR=/tmp/wordpress-tests-lib composer run test
-      - name: Install and activate the release ZIP in fresh WordPress
+
+      - name: Install and activate the shared release ZIP in fresh WordPress
         run: |
-          release_dir="/tmp/ran-turnstile-release-${{ matrix.php }}"
-          sh scripts/build-release.sh "$release_dir"
           fresh_root="/tmp/ran-turnstile-release-wordpress-${{ matrix.php }}"
           wp_version='${{ matrix.wordpress }}'
-          if [ "$wp_version" = 'latest' ]; then
-            wp core download --path="$fresh_root"
+          if [[ "$wp_version" == latest ]]; then
+              wp core download --path="$fresh_root"
           else
-            wp core download --path="$fresh_root" --version="$wp_version"
+              wp core download --path="$fresh_root" --version="$wp_version"
           fi
           wp config create --path="$fresh_root" --dbname=ran_turnstile_release --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --skip-check
           wp db create --path="$fresh_root"
           wp core install --path="$fresh_root" --url=http://localhost --title='RAN Turnstile release test' --admin_user=admin --admin_password=release-test-password --admin_email=admin@example.test
           jetpack_version='${{ matrix.jetpack }}'
-          if [ "$jetpack_version" = 'latest' ]; then
-            wp plugin install jetpack --path="$fresh_root" --activate
+          if [[ "$jetpack_version" == latest ]]; then
+              wp plugin install jetpack --path="$fresh_root" --activate
           else
-            wp plugin install jetpack --version="$jetpack_version" --path="$fresh_root" --activate
+              wp plugin install jetpack --version="$jetpack_version" --path="$fresh_root" --activate
           fi
-          archive=$(sh scripts/release-archive-path.sh "$release_dir")
-          wp plugin install "$archive" --path="$fresh_root" --activate
+          wp plugin install "$GITHUB_WORKSPACE/dist/ran-turnstile-for-jetpack-forms-${{ needs.quality.outputs.version }}.zip" --path="$fresh_root" --activate
           wp plugin is-active ran-turnstile-for-jetpack-forms --path="$fresh_root"
 
-  plugin-check-and-release:
-    name: Plugin Check and release artifact
+  plugin-check:
+    name: Plugin Check
+    needs: quality
     runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: actions/setup-node@v6.4.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          node-version-file: .node-version
-      - uses: shivammathur/setup-php@v2
+          persist-credentials: false
+
+      - name: Download the canonical release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          php-version: '8.5'
-          coverage: none
-          tools: composer:v2, wp-cli
-      - run: composer install --no-interaction --prefer-dist
-      - run: sh scripts/build-release.sh
-      - run: mkdir plugin-check-build && unzip -q "$(sh scripts/release-archive-path.sh)" -d plugin-check-build
-      - uses: wordpress/plugin-check-action@v1
+          name: ${{ needs.quality.outputs.artifact-name }}
+          path: dist
+
+      - name: Extract the tested archive
+        run: mkdir plugin-check-build && unzip -q "dist/ran-turnstile-for-jetpack-forms-${{ needs.quality.outputs.version }}.zip" -d plugin-check-build
+
+      - uses: wordpress/plugin-check-action@98a1788320d0add90df2d8183934ecccbc4e05d2 # v1
         with:
           build-dir: ./plugin-check-build/ran-turnstile-for-jetpack-forms
           # Turnstile cannot function without Cloudflare's documented runtime
           # script. Keep every other Plugin Check code active.
           ignore-codes: PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent
-      - name: Verify release archive content
-        run: |
-          archive=$(sh scripts/release-archive-path.sh)
-          unzip -t "$archive"
-          unzip -Z1 "$archive" | grep -qx 'ran-turnstile-for-jetpack-forms/ran-turnstile-for-jetpack-forms.php'
-          if unzip -Z1 "$archive" | grep -Eq '^ran-turnstile-for-jetpack-forms/(vendor|tests|scripts|\.git|\.github|\.dex)(/|$)'; then
-            echo 'Release archive contains development-only files.' >&2
-            exit 1
-          fi
-      - uses: actions/upload-artifact@v7.0.1
-        with:
-          name: ran-turnstile-for-jetpack-forms-${{ github.sha }}
-          path: dist/*.zip
-          if-no-files-found: error

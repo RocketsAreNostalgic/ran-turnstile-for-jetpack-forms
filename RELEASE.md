@@ -7,7 +7,8 @@ from being released again.
 
 ## GitHub release automation
 
-Release Please runs after pushes to `main`. It opens or updates one release PR
+Release Please runs only after the matching `main` push has completed the
+Quality workflow successfully. It opens or updates one release PR
 containing the proposed version, generated `CHANGELOG.md`, and synchronized
 WordPress version sources:
 
@@ -38,12 +39,16 @@ Before merging the release PR:
 4. Build and inspect the allowlisted release ZIP.
 5. Merge the release PR only after the candidate is ready.
 
-Merging the release PR creates the `v<version>` tag and GitHub Release. Release
-Please does not build or install the plugin, attach an independently validated
-ZIP, publish to WordPress.org, or deploy a release to any WordPress site.
+Merging the release PR first runs Quality against the merge commit. The release
+workflow then verifies the exact merged Release Please PR, downloads the ZIP,
+checksum, and manifest produced by that successful Quality run, publishes them
+through a draft GitHub Release, and reads the tag, release, and assets back.
+Release Please does not publish to WordPress.org or deploy a release to any
+WordPress site.
 
-The release workflow also packages a canonical ZIP, SHA-256 checksum, and JSON
-manifest from the exact tagged release. WordPress.org deployment stays
+The explicit manual-dispatch path can rebuild a canonical ZIP, SHA-256
+checksum, and JSON manifest from an exact existing tag for recovery or a
+separately approved WordPress.org deployment. WordPress.org deployment stays
 disabled in source control until the deployment contract is deliberately
 enabled.
 
@@ -65,13 +70,14 @@ sorted entries so the same source produces the same archive. Use a new output
 directory or remove a previously reviewed local artifact before rebuilding; do
 not silently replace a release candidate.
 
-CI independently runs the supported compatibility lanes, Plugin Check,
-archive verification, and clean-install activation with Jetpack. Downloaded CI
-artifacts are evidence for review, not an automatic deployment channel.
+CI builds the release assets once, then reuses that exact archive for the
+supported compatibility lanes, Plugin Check, clean-install activation with
+Jetpack, and GitHub publication. The release workflow accepts only the artifact
+from the successful same-repository Quality run for the exact `main` commit.
 
-For manual WordPress.org publication, dispatch the release workflow with an
-existing `v<version>` tag. The protected deploy job rebuilds and verifies the
-canonical release assets before touching SVN.
+For manual WordPress.org publication or recovery, dispatch the release workflow
+with an existing `v<version>` tag. That explicit path rebuilds and verifies the
+canonical release assets before any separately approved protected SVN action.
 
 ## WordPress.org publication
 

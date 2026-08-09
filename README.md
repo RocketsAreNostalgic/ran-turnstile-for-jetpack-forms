@@ -176,8 +176,9 @@ its first argument when needed.
 ## Releases
 
 Release Please maintains release PRs from Conventional Commits on `main`.
-Merging a release PR creates the version tag and GitHub Release; it does not
-publish to WordPress.org or deploy to a WordPress site. See
+After a release PR merge passes the matching Quality run, the release workflow
+publishes that run's verified assets as the version tag and GitHub Release. It
+does not publish to WordPress.org or deploy to a WordPress site. See
 [RELEASE.md](RELEASE.md) for the lifecycle and
 [PRE-RELEASE-CHECKLIST.md](PRE-RELEASE-CHECKLIST.md) for the product-specific
 release gate.

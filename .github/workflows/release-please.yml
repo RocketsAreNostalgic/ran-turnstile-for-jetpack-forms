@@ -1,9 +1,10 @@
 name: Release Please
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: [Quality]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       tag:
@@ -21,10 +22,7 @@ on:
         default: false
         type: boolean
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: release-please-main
@@ -32,68 +30,145 @@ concurrency:
 
 jobs:
   release-please:
-    if: github.event_name == 'push'
+    name: Release Please
+    if: >-
+      ${{ github.event_name == 'workflow_run' && github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository }}
     runs-on: blacksmith-2vcpu-ubuntu-2404
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
+      deployment_enabled: ${{ steps.contract.outputs.enabled }}
+      published_now: ${{ steps.publish.outputs.published-now }}
+      tag_name: ${{ steps.release-state.outputs.tag-name }}
     steps:
-      - id: release
-        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Prove an exact merged Release Please candidate before publication
+        id: release-state
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RAN_QUALITY_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RAN_QUALITY_COMMIT"
+          if git diff --quiet "${RAN_QUALITY_COMMIT}^1" "$RAN_QUALITY_COMMIT" -- .release-please-manifest.json; then echo 'release-required=false' >> "$GITHUB_OUTPUT"; exit 0; fi
+          release_commit="$(git rev-parse "${RAN_QUALITY_COMMIT}^2")"
+          test "$(git log -1 --format=%H "$RAN_QUALITY_COMMIT" -- .release-please-manifest.json)" = "$release_commit"
+          test "$(git rev-parse "${RAN_QUALITY_COMMIT}^{tree}")" = "$(git rev-parse "${release_commit}^{tree}")"
+          version="$(jq -er '."." | select(type == "string")' .release-please-manifest.json)"
+          tag="v${version}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
+          release_pr="$(gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/${release_commit}/pulls" | jq -cer --arg merge "$RAN_QUALITY_COMMIT" --arg release "$release_commit" --arg repository "$GITHUB_REPOSITORY" '[.[] | select(.merged_at != null and .base.ref == "main" and .head.sha == $release and .merge_commit_sha == $merge and .head.ref == "release-please--branches--main--components--ran-turnstile-for-jetpack-forms" and .head.repo.full_name == $repository and .user.login == "github-actions[bot]")] | if length == 1 then .[0] else error("Expected exactly one merged Release Please PR for the Quality commit.") end')"
+          release_pr_number="$(jq -er '.number' <<< "$release_pr")"
+          pending="$(jq -r 'any(.labels[]?; .name == "autorelease: pending")' <<< "$release_pr")"
+          tagged="$(jq -r 'any(.labels[]?; .name == "autorelease: tagged")' <<< "$release_pr")"
+          release_pages="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100")"
+          if release_json="$(jq -cer --arg tag "$tag" 'add | .[] | select(.tag_name == $tag)' <<< "$release_pages")"; then
+            test "$(jq -er '.target_commitish' <<< "$release_json")" = "$RAN_QUALITY_COMMIT"
+            if [[ "$(jq -er '.draft' <<< "$release_json")" == false ]]; then state=published; release_pending=false; else state=draft; release_pending=true; fi
+          else state=absent; release_pending=true; fi
+          if [[ "$release_pending" == true ]]; then test "$pending" = true; test "$tagged" = false; elif [[ "$pending" != true && "$tagged" != true ]]; then echo '::error::The published release PR has neither the pending nor tagged Release Please label.'; exit 1; fi
+          printf 'release-required=true\ntag-name=%s\n' "$tag" >> "$GITHUB_OUTPUT"
+          printf 'RAN_RELEASE_PENDING=%s\nRAN_RELEASE_PR_NUMBER=%s\nRAN_RELEASE_STATE=%s\nRAN_RELEASE_TAG=%s\nRAN_RELEASE_VERSION=%s\n' "$release_pending" "$release_pr_number" "$state" "$tag" "$version" >> "$GITHUB_ENV"
+
+      - name: Open or update the release pull request
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          skip-github-release: true
+
+      - name: Download the exact assets tested by Quality
+        if: steps.release-state.outputs.release-required == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ran-turnstile-for-jetpack-forms-release-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          path: dist
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Verify the downloaded release identity
+        if: steps.release-state.outputs.release-required == 'true'
+        env:
+          RAN_QUALITY_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          archive="dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip"; checksum="${archive}.sha256"; manifest="dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.manifest.json"
+          jq -e --arg archive "$(basename "$archive")" --arg commit "$RAN_QUALITY_COMMIT" --arg tag "$RAN_RELEASE_TAG" --arg version "$RAN_RELEASE_VERSION" '.archive == $archive and .commit == $commit and .tag == $tag and .version == $version and (.sha256 | test("^[0-9a-f]{64}$"))' "$manifest" >/dev/null
+          (cd dist && sha256sum --check --strict "$(basename "$checksum")")
+          unzip -tqq "$archive"
+
+      - name: Create a draft, attach the tested assets, and publish
+        id: publish
+        if: steps.release-state.outputs.release-required == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RAN_QUALITY_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          echo 'published-now=false' >> "$GITHUB_OUTPUT"
+          if [[ "$RAN_RELEASE_PENDING" != true ]]; then exit 0; fi
+          if [[ "$RAN_RELEASE_STATE" == absent ]]; then prerelease=(); [[ "$RAN_RELEASE_VERSION" == *-* ]] && prerelease=(--prerelease); gh release create "$RAN_RELEASE_TAG" --draft --target "$RAN_QUALITY_COMMIT" --title "$RAN_RELEASE_TAG" --generate-notes "${prerelease[@]}"; fi
+          gh release upload "$RAN_RELEASE_TAG" "dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip" "dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip.sha256" "dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.manifest.json" --clobber --repo "$GITHUB_REPOSITORY"
+          latest=(--latest); [[ "$RAN_RELEASE_VERSION" == *-* ]] && latest=(--prerelease)
+          gh release edit "$RAN_RELEASE_TAG" --draft=false "${latest[@]}"
+          echo 'published-now=true' >> "$GITHUB_OUTPUT"
+
+      - name: Read back the published release and reconcile its exact PR
+        if: steps.release-state.outputs.release-required == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RAN_QUALITY_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RAN_RELEASE_TAG}")"
+          jq -e --arg tag "$RAN_RELEASE_TAG" --arg commit "$RAN_QUALITY_COMMIT" '.tag_name == $tag and .draft == false and .target_commitish == $commit' <<< "$release_json" >/dev/null
+          tag_ref="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RAN_RELEASE_TAG}")"; jq -e --arg commit "$RAN_QUALITY_COMMIT" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_ref" >/dev/null
+          expected="$(printf '%s\n' "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.manifest.json" "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip" "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip.sha256" | jq -Rsc 'split("\n") | map(select(length > 0)) | sort')"; test "$(jq -c '[.assets[].name] | sort' <<< "$release_json")" = "$expected"
+          labels="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${RAN_RELEASE_PR_NUMBER}" --jq '[.labels[].name]')"
+          if ! jq -e 'index("autorelease: tagged") != null' <<< "$labels" >/dev/null; then jq -nc '{labels: ["autorelease: tagged"]}' | gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${RAN_RELEASE_PR_NUMBER}/labels" --input - >/dev/null; fi
+          if jq -e 'index("autorelease: pending") != null' <<< "$labels" >/dev/null; then gh api --method DELETE "repos/${GITHUB_REPOSITORY}/issues/${RAN_RELEASE_PR_NUMBER}/labels/autorelease%3A%20pending" >/dev/null; fi
+
+      - name: Read deployment contract
+        id: contract
+        if: steps.release-state.outputs.release-required == 'true'
+        run: echo "enabled=$(jq -r '.enabled' wordpress-org/deployment.json)" >> "$GITHUB_OUTPUT"
 
   package-release:
-    name: Package release
-    needs: release-please
-    if: ${{ always() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
+    name: Manually rebuild an existing release
+    if: github.event_name == 'workflow_dispatch'
     runs-on: blacksmith-2vcpu-ubuntu-2404
     permissions:
       contents: write
     outputs:
-      deployment_enabled: ${{ steps.contract.outputs.enabled }}
-      tag_name: ${{ steps.resolve-tag.outputs.tag_name }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    env:
+      TAG_NAME: ${{ inputs.tag }}
     steps:
-      - name: Resolve release tag
-        id: resolve-tag
-        shell: bash
-        env:
-          INPUT_TAG: ${{ inputs.tag }}
-          RELEASE_PLEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
-        run: |
-          if [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
-              echo "tag_name=${INPUT_TAG}" >> "${GITHUB_OUTPUT}"
-          else
-              echo "tag_name=${RELEASE_PLEASE_TAG}" >> "${GITHUB_OUTPUT}"
-          fi
-
-      - name: Check out the exact release tag
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          ref: ${{ steps.resolve-tag.outputs.tag_name }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+          ref: ${{ env.TAG_NAME }}
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .node-version
-
-      - name: Set up PHP
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
-          php-version: "8.5"
+          php-version: '8.5'
           extensions: zip
           tools: composer:v2, wp-cli
           coverage: none
-
-      - name: Install release dependencies
-        run: composer install --no-interaction --prefer-dist
-
-      - name: Run release quality gates
-        run: |
+      - run: |
+          composer install --no-interaction --prefer-dist
           composer validate --strict
           composer run phpcs
           find . -path './vendor' -prune -o -type f -name '*.php' -exec php -l {} \;
@@ -101,90 +176,43 @@ jobs:
           node --check scripts/make-pot.mjs
           node scripts/make-pot.mjs
           git diff --exit-code -- languages/ran-turnstile-for-jetpack-forms.pot
-
-      - name: Build verified release assets
+      - name: Build and upload verified release assets
         id: release
-        shell: bash
-        run: |
-          tag_name="${{ steps.resolve-tag.outputs.tag_name }}"
-          bash scripts/create-release-assets.sh "${tag_name}"
-          version="${tag_name#v}"
-          echo "tag_name=${tag_name}" >> "${GITHUB_OUTPUT}"
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-
-      - name: Read deployment contract
-        id: contract
-        run: echo "enabled=$(jq -r '.enabled' wordpress-org/deployment.json)" >> "${GITHUB_OUTPUT}"
-
-      - name: Attach verified assets to the GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag_name="${{ steps.resolve-tag.outputs.tag_name }}"
-          version="${tag_name#v}"
-          gh release upload "${tag_name}" \
-              "dist/ran-turnstile-for-jetpack-forms-${version}.zip" \
-              "dist/ran-turnstile-for-jetpack-forms-${version}.zip.sha256" \
-              "dist/ran-turnstile-for-jetpack-forms-${version}.manifest.json" \
-              --clobber \
-              --repo "${GITHUB_REPOSITORY}"
+          bash scripts/create-release-assets.sh "$TAG_NAME"
+          version="${TAG_NAME#v}"
+          gh release upload "$TAG_NAME" "dist/ran-turnstile-for-jetpack-forms-${version}.zip" "dist/ran-turnstile-for-jetpack-forms-${version}.zip.sha256" "dist/ran-turnstile-for-jetpack-forms-${version}.manifest.json" --clobber --repo "$GITHUB_REPOSITORY"
+          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
 
   deploy-wordpress-org:
     name: Deploy to WordPress.org
-    needs: package-release
+    needs: [release-please, package-release]
     if: >-
-      needs.package-release.result == 'success' &&
-      (
-        (github.event_name == 'push' && needs.package-release.outputs.deployment_enabled == 'true') ||
-        (github.event_name == 'workflow_dispatch' && inputs.deploy)
-      )
+      ${{ always() && ((github.event_name == 'workflow_run' && needs.release-please.result == 'success' && needs.release-please.outputs.published_now == 'true' && needs.release-please.outputs.deployment_enabled == 'true') || (github.event_name == 'workflow_dispatch' && needs.package-release.result == 'success' && inputs.deploy)) }}
     runs-on: blacksmith-2vcpu-ubuntu-2404
     permissions:
       contents: read
     environment: wordpress-org
     env:
+      TAG_NAME: ${{ github.event_name == 'workflow_dispatch' && needs.package-release.outputs.tag_name || needs.release-please.outputs.tag_name }}
       WORDPRESS_ORG_USERNAME: ${{ secrets.WORDPRESS_ORG_USERNAME }}
       WORDPRESS_ORG_PASSWORD: ${{ secrets.WORDPRESS_ORG_PASSWORD }}
     steps:
-      - name: Resolve release tag
-        id: resolve-tag
-        shell: bash
-        env:
-          PACKAGE_RELEASE_TAG: ${{ needs.package-release.outputs.tag_name }}
-        run: echo "tag_name=${PACKAGE_RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
-
-      - name: Check out the exact release tag
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          ref: ${{ steps.resolve-tag.outputs.tag_name }}
-
+          ref: ${{ env.TAG_NAME }}
       - name: Download canonical GitHub release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag_name="${{ steps.resolve-tag.outputs.tag_name }}"
-          version="${tag_name#v}"
-          mkdir -p dist
-          gh release download "${tag_name}" \
-              --pattern "ran-turnstile-for-jetpack-forms-${version}.*" \
-              --dir dist \
-              --repo "${GITHUB_REPOSITORY}"
-
+          version="${TAG_NAME#v}"; mkdir -p dist
+          gh release download "$TAG_NAME" --pattern "ran-turnstile-for-jetpack-forms-${version}.*" --dir dist --repo "$GITHUB_REPOSITORY"
       - name: Deploy verified release to protected SVN
-        shell: bash
         run: |
-          tag_name="${{ steps.resolve-tag.outputs.tag_name }}"
-          version="${tag_name#v}"
-          options=()
-          if [[ "${{ github.event_name }}" == 'workflow_dispatch' ]]; then
-              options+=(--allow-disabled)
-          fi
-          if [[ "${{ github.event_name }}" == 'workflow_dispatch' && "${{ inputs.sync_assets }}" == 'true' ]]; then
-              options+=(--sync-assets)
-          fi
-          bash scripts/deploy-wordpress-org.sh \
-              "dist/ran-turnstile-for-jetpack-forms-${version}.zip" \
-              "dist/ran-turnstile-for-jetpack-forms-${version}.zip.sha256" \
-              "dist/ran-turnstile-for-jetpack-forms-${version}.manifest.json" \
-              "${options[@]}"
+          version="${TAG_NAME#v}"; options=()
+          [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]] && options+=(--allow-disabled)
+          [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && '${{ inputs.sync_assets }}' == true ]] && options+=(--sync-assets)
+          bash scripts/deploy-wordpress-org.sh "dist/ran-turnstile-for-jetpack-forms-${version}.zip" "dist/ran-turnstile-for-jetpack-forms-${version}.zip.sha256" "dist/ran-turnstile-for-jetpack-forms-${version}.manifest.json" "${options[@]}"
