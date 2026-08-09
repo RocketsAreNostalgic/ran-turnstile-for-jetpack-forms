@@ -37,7 +37,7 @@ jobs:
           php-version: '8.5'
           coverage: none
           extensions: zip
-          tools: composer:v2
+          tools: composer:v2, wp-cli
 
       - name: Install PHP development dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
@@ -51,6 +51,7 @@ jobs:
           node --check scripts/make-pot.mjs
           node scripts/make-pot.mjs
           git diff --exit-code -- languages/ran-turnstile-for-jetpack-forms.pot
+          grep -Fq 'tools: composer:v2, wp-cli' .github/workflows/quality.yml
           grep -Fq "github.event_name == 'pull_request'" .github/workflows/quality.yml
           # These single-quoted patterns are literal workflow contracts.
           # shellcheck disable=SC2016
