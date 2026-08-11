@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "573ef7305a1461e926606eee290f5565",
+    "content-hash": "b7cddafe627bde567a4a6f7ac2174f00",
     "packages": [],
     "packages-dev": [
         {
@@ -1060,6 +1060,59 @@
             "time": "2026-07-06T14:48:07+00:00"
         },
         {
+            "name": "ran/admin-shell",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/RocketsAreNostalgic/ran-admin-shell.git",
+                "reference": "ad05ad5f6d20735d6815bd8ac142514ef2c9d8c2"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/RocketsAreNostalgic/ran-admin-shell/zipball/ad05ad5f6d20735d6815bd8ac142514ef2c9d8c2",
+                "reference": "ad05ad5f6d20735d6815bd8ac142514ef2c9d8c2",
+                "shasum": ""
+            },
+            "require": {
+                "composer-runtime-api": "^2.2",
+                "ext-hash": "*",
+                "ext-json": "*",
+                "php": ">=8.0"
+            },
+            "require-dev": {
+                "dealerdirect/phpcodesniffer-composer-installer": "^1.1",
+                "phpcompatibility/php-compatibility": "^9.3",
+                "phpunit/phpunit": "^9.6",
+                "wp-coding-standards/wpcs": "^3.1"
+            },
+            "default-branch": true,
+            "bin": [
+                "bin/ran-admin-shell"
+            ],
+            "type": "library",
+            "scripts": {
+                "phpcs": [
+                    "phpcs -p"
+                ],
+                "test": [
+                    "phpunit --configuration phpunit.xml.dist"
+                ],
+                "check": [
+                    "@test",
+                    "@phpcs"
+                ]
+            },
+            "license": [
+                "GPL-2.0-or-later"
+            ],
+            "description": "Build-time admin-shell resources for Rockets Are Nostalgic WordPress plugins.",
+            "support": {
+                "source": "https://github.com/RocketsAreNostalgic/ran-admin-shell/tree/main",
+                "issues": "https://github.com/RocketsAreNostalgic/ran-admin-shell/issues"
+            },
+            "time": "2026-08-11T10:03:15+00:00"
+        },
+        {
             "name": "sebastian/cli-parser",
             "version": "1.0.2",
             "source": {
@@ -2072,16 +2125,16 @@
         },
         {
             "name": "squizlabs/php_codesniffer",
-            "version": "3.13.5",
+            "version": "3.13.6",
             "source": {
                 "type": "git",
                 "url": "https://github.com/PHPCSStandards/PHP_CodeSniffer.git",
-                "reference": "0ca86845ce43291e8f5692c7356fccf3bcf02bf4"
+                "reference": "4c378e1a528ea066890fc2397cbdd2f94eb2fc91"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/PHPCSStandards/PHP_CodeSniffer/zipball/0ca86845ce43291e8f5692c7356fccf3bcf02bf4",
-                "reference": "0ca86845ce43291e8f5692c7356fccf3bcf02bf4",
+                "url": "https://api.github.com/repos/PHPCSStandards/PHP_CodeSniffer/zipball/4c378e1a528ea066890fc2397cbdd2f94eb2fc91",
+                "reference": "4c378e1a528ea066890fc2397cbdd2f94eb2fc91",
                 "shasum": ""
             },
             "require": {
@@ -2147,7 +2200,7 @@
                     "type": "thanks_dev"
                 }
             ],
-            "time": "2025-11-04T16:30:35+00:00"
+            "time": "2026-08-06T00:17:32+00:00"
         },
         {
             "name": "theseer/tokenizer",
@@ -2379,7 +2432,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "ran/admin-shell": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {

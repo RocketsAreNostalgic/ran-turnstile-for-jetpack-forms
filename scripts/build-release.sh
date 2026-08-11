@@ -40,6 +40,7 @@ if ! grep -Fq "RAN_TURNSTILE_FOR_JETPACK_FORMS_VERSION', '$version'" ran-turnsti
 	exit 1
 fi
 
+composer admin-shell:check
 node --check assets/turnstile.js
 node --check scripts/make-pot.mjs
 find includes -name '*.php' -print0 | xargs -0 -n 1 php -l
@@ -113,6 +114,17 @@ if [ ! -s "$expected" ] || ! grep -Fxq "$slug/ran-turnstile-for-jetpack-forms.ph
 	echo 'Release allowlist did not stage the plugin entry point.' >&2
 	exit 1
 fi
+
+for shell_path in \
+	"$slug/assets/ran-admin-shell.css" \
+	"$slug/includes/generated/ran-admin-shell.php" \
+	"$slug/includes/generated/ran-admin-shell.provenance.json"
+do
+	if ! grep -Fxq "$shell_path" "$expected"; then
+		echo "Release archive is missing synchronized admin-shell resource: $shell_path" >&2
+		exit 1
+	fi
+done
 
 # Fixed timestamps, modes, and lexicographic input ordering make a reviewed
 # release candidate byte-for-byte reproducible from identical source files.

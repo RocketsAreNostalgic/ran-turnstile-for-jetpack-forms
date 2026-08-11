@@ -7,6 +7,12 @@
 	"support": {
 		"issues": "https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues"
 	},
+	"repositories": [
+		{
+			"type": "vcs",
+			"url": "https://github.com/RocketsAreNostalgic/ran-admin-shell.git"
+		}
+	],
 	"require": {
 		"php": ">=8.0"
 	},
@@ -14,11 +20,14 @@
 		"dealerdirect/phpcodesniffer-composer-installer": "^1.1",
 		"phpcompatibility/php-compatibility": "^9.3",
 		"phpunit/phpunit": "^9.6",
+		"ran/admin-shell": "dev-main",
 		"wp-coding-standards/wpcs": "^3.1",
 		"wp-phpunit/wp-phpunit": "^6.5",
 		"yoast/phpunit-polyfills": "^3.1"
 	},
 	"scripts": {
+		"admin-shell:check": "ran-admin-shell check --config=ran-admin-shell.json --immutable",
+		"admin-shell:sync": "ran-admin-shell sync --config=ran-admin-shell.json",
 		"phpcs": "phpcs -p",
 		"phpcbf": "phpcbf -p",
 		"test": "phpunit"

@@ -28,6 +28,7 @@ define( 'RAN_TURNSTILE_FOR_JETPACK_FORMS_VERSION', '0.3.1' );
 // x-release-please-end
 define( 'RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_FILE', __FILE__ );
 define( 'RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
+define( 'RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
 require_once RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR . 'includes/Settings.php';
 require_once RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR . 'includes/Turnstile.php';

@@ -32,6 +32,12 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		wp_deregister_script( Turnstile::CLIENT_SCRIPT_HANDLE );
 		wp_dequeue_script( Turnstile::SCRIPT_HANDLE );
 		wp_deregister_script( Turnstile::SCRIPT_HANDLE );
+		wp_dequeue_script( Admin::HEALTH_SCRIPT_HANDLE );
+		wp_deregister_script( Admin::HEALTH_SCRIPT_HANDLE );
+		wp_dequeue_style( Admin::SHELL_STYLE_HANDLE );
+		wp_deregister_style( Admin::SHELL_STYLE_HANDLE );
+		wp_dequeue_style( Admin::ADMIN_STYLE_HANDLE );
+		wp_deregister_style( Admin::ADMIN_STYLE_HANDLE );
 	}
 
 	/** Restore request state. */
@@ -47,6 +53,13 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		wp_deregister_script( Turnstile::CLIENT_SCRIPT_HANDLE );
 		wp_dequeue_script( Turnstile::SCRIPT_HANDLE );
 		wp_deregister_script( Turnstile::SCRIPT_HANDLE );
+		wp_dequeue_script( Admin::HEALTH_SCRIPT_HANDLE );
+		wp_deregister_script( Admin::HEALTH_SCRIPT_HANDLE );
+		wp_dequeue_style( Admin::SHELL_STYLE_HANDLE );
+		wp_deregister_style( Admin::SHELL_STYLE_HANDLE );
+		wp_dequeue_style( Admin::ADMIN_STYLE_HANDLE );
+		wp_deregister_style( Admin::ADMIN_STYLE_HANDLE );
+		set_current_screen( 'front' );
 		parent::tear_down();
 	}
 
@@ -179,8 +192,51 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$html = (string) ob_get_clean();
 
 		$this->assertSame( 1, substr_count( $html, Settings::OPTION_NAME . '[turnstile_always_visible]' ) );
+		$this->assertSame( 1, substr_count( $html, '<h1 ' ) );
+		$this->assertStringContainsString( 'class="ran-admin-shell', $html );
+		$this->assertStringContainsString( 'RAN Turnstile for Jetpack Forms', $html );
+		$this->assertStringContainsString( 'Protect every Jetpack form on this site with Cloudflare Turnstile.', $html );
+		$this->assertStringNotContainsString( 'ran-admin-shell__logo', $html );
+		$this->assertStringNotContainsString( 'ran-admin-shell__background', $html );
+		$this->assertStringNotContainsString( 'ran-admin-shell__navigation', $html );
+		$this->assertStringNotContainsString( 'ran-admin-shell__actions', $html );
 		$this->assertStringContainsString( 'only when Cloudflare requires visitor interaction (recommended)', $html );
 		$this->assertMatchesRegularExpression( '/id="ran-turnstile-for-jetpack-forms-health-check-form"[\s\S]+class="cf-turnstile"[^>]+data-appearance="always"/', $html );
+	}
+
+	/** Shared and consumer styles are exact-screen while Cloudflare stays conditional. */
+	public function test_admin_assets_keep_shell_independent_from_cloudflare() {
+		Admin::enqueue_scripts( 'dashboard' );
+		$this->assertFalse( wp_style_is( Admin::SHELL_STYLE_HANDLE, 'enqueued' ) );
+		$this->assertFalse( wp_style_is( Admin::ADMIN_STYLE_HANDLE, 'enqueued' ) );
+
+		Admin::enqueue_scripts( 'settings_page_' . Admin::PAGE_SLUG );
+		$this->assertTrue( wp_style_is( Admin::SHELL_STYLE_HANDLE, 'enqueued' ) );
+		$this->assertTrue( wp_style_is( Admin::ADMIN_STYLE_HANDLE, 'enqueued' ) );
+		$this->assertFalse( wp_script_is( Admin::HEALTH_SCRIPT_HANDLE, 'enqueued' ) );
+
+		$this->configure_enabled_plugin();
+		Admin::enqueue_scripts( 'settings_page_' . Admin::PAGE_SLUG );
+		$this->assertTrue( wp_script_is( Admin::HEALTH_SCRIPT_HANDLE, 'enqueued' ) );
+	}
+
+	/** Contextual Help is consumer-owned and appears only on the settings screen. */
+	public function test_native_help_registers_three_tabs_on_the_exact_screen() {
+		set_current_screen( 'dashboard' );
+		Admin::register_help();
+		$this->assertSame( array(), get_current_screen()->get_help_tabs() );
+
+		set_current_screen( 'settings_page_' . Admin::PAGE_SLUG );
+		Admin::register_help();
+		$screen = get_current_screen();
+
+		$this->assertCount( 3, $screen->get_help_tabs() );
+		$this->assertSame(
+			array( 'ran-turnstile-overview', 'ran-turnstile-credentials', 'ran-turnstile-troubleshooting' ),
+			array_values( wp_list_pluck( $screen->get_help_tabs(), 'id' ) )
+		);
+		$this->assertStringContainsString( 'Turnstile validation', $screen->get_help_sidebar() );
+		$this->assertStringContainsString( 'Turnstile testing keys', $screen->get_help_sidebar() );
 	}
 
 	/** Runtime hooks run late for collision detection and before Akismet for validation. */

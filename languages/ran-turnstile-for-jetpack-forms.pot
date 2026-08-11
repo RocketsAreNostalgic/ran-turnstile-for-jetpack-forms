@@ -18,8 +18,8 @@ msgstr ""
 
 #. Plugin Name of the plugin
 #: ran-turnstile-for-jetpack-forms.php
-#: includes/Admin.php:37
-#: includes/Admin.php:133
+#: includes/Admin.php:46
+#: includes/Admin.php:167
 msgid "RAN Turnstile for Jetpack Forms"
 msgstr ""
 
@@ -43,158 +43,178 @@ msgstr ""
 msgid "https://github.com/RocketsAreNostalgic/"
 msgstr ""
 
-#: includes/Admin.php:38
+#: includes/Admin.php:47
 #: includes/HealthCheck.php:52
 msgid "RAN Turnstile"
 msgstr ""
 
-#: includes/Admin.php:65
-msgid "Settings"
+#: includes/Admin.php:68
+msgid "Overview"
+msgstr ""
+
+#: includes/Admin.php:69
+msgid "RAN Turnstile adds Cloudflare Turnstile protection to every Jetpack form on this site."
+msgstr ""
+
+#: includes/Admin.php:75
+msgid "Credentials and local testing"
+msgstr ""
+
+#: includes/Admin.php:76
+msgid "Enter the Cloudflare site and secret keys for this site. For local development, the settings form can install Cloudflare’s always-pass test pair; production environments reject those test keys."
+msgstr ""
+
+#: includes/Admin.php:82
+#: includes/Admin.php:210
+msgid "Troubleshooting"
 msgstr ""
 
 #: includes/Admin.php:83
-msgid "RAN Turnstile is paused to prevent duplicate widgets."
+msgid "Use the health check to verify configuration and Cloudflare validation without sending mail, submitting a form or creating feedback posts."
 msgstr ""
 
-#: includes/Admin.php:84
-msgid "RAN Octopus Forms is active with its Turnstile feature enabled. Disable Turnstile in RAN Octopus Forms before enabling this plugin’s runtime protection."
+#: includes/Admin.php:87
+msgid "Cloudflare documentation"
 msgstr ""
 
-#: includes/Admin.php:134
-msgid "Protect every Jetpack form on this site with Cloudflare Turnstile."
-msgstr ""
-
-#: includes/Admin.php:136
+#: includes/Admin.php:88
 #: includes/HealthCheck.php:105
 #: includes/HealthCheck.php:110
 msgid "Turnstile validation"
 msgstr ""
 
-#: includes/Admin.php:137
-msgctxt "settings help link separator"
-msgid "|"
-msgstr ""
-
-#: includes/Admin.php:138
+#: includes/Admin.php:89
 msgid "Turnstile testing keys"
 msgstr ""
 
-#: includes/Admin.php:142
-msgid "Runtime protection is paused because RAN Octopus Forms still has Turnstile enabled. Disable the old feature before cutover; otherwise both plugins would render and validate a widget."
+#: includes/Admin.php:113
+msgid "Settings"
 msgstr ""
 
-#: includes/Admin.php:148
-msgid "Cloudflare Turnstile"
+#: includes/Admin.php:131
+msgid "RAN Turnstile is paused to prevent duplicate widgets."
 msgstr ""
 
-#: includes/Admin.php:151
-msgid "Enable Turnstile protection for all Jetpack forms"
-msgstr ""
-
-#: includes/Admin.php:152
-msgid "Jetpack Akismet can remain enabled. Do not run another Turnstile integration on the same form unless code explicitly excludes that form from this plugin."
-msgstr ""
-
-#: includes/Admin.php:155
-msgid "Always show the Turnstile widget"
-msgstr ""
-
-#: includes/Admin.php:156
-msgid "Leave off to show the frontend widget only when Cloudflare requires visitor interaction (recommended). This does not change the widget mode configured for the site key in Cloudflare. The troubleshooting widget remains visible."
-msgstr ""
-
-#: includes/Admin.php:159
-msgid "Site key"
-msgstr ""
-
-#: includes/Admin.php:163
-msgid "Secret key"
-msgstr ""
-
-#: includes/Admin.php:165
-msgid "Leave blank to keep the existing stored secret."
+#: includes/Admin.php:132
+msgid "RAN Octopus Forms is active with its Turnstile feature enabled. Disable Turnstile in RAN Octopus Forms before enabling this plugin’s runtime protection."
 msgstr ""
 
 #: includes/Admin.php:168
-msgid "Local testing"
+msgid "Protect every Jetpack form on this site with Cloudflare Turnstile."
 msgstr ""
 
-#: includes/Admin.php:173
-msgid "Save settings"
+#: includes/Admin.php:175
+msgid "Runtime protection is paused because RAN Octopus Forms still has Turnstile enabled. Disable the old feature before cutover; otherwise both plugins would render and validate a widget."
 msgstr ""
 
-#: includes/Admin.php:177
-msgid "Troubleshooting"
+#: includes/Admin.php:181
+msgid "Cloudflare Turnstile"
 msgstr ""
 
-#: includes/Admin.php:179
-msgid "Runs safe diagnostics without sending mail, submitting a form, or creating feedback posts. Cloudflare validation occurs only when you press the button."
+#: includes/Admin.php:184
+msgid "Enable Turnstile protection for all Jetpack forms"
 msgstr ""
 
 #: includes/Admin.php:185
+msgid "Jetpack Akismet can remain enabled. Do not run another Turnstile integration on the same form unless code explicitly excludes that form from this plugin."
+msgstr ""
+
+#: includes/Admin.php:188
+msgid "Always show the Turnstile widget"
+msgstr ""
+
 #: includes/Admin.php:189
+msgid "Leave off to show the frontend widget only when Cloudflare requires visitor interaction (recommended). This does not change the widget mode configured for the site key in Cloudflare. The troubleshooting widget remains visible."
+msgstr ""
+
+#: includes/Admin.php:192
+msgid "Site key"
+msgstr ""
+
+#: includes/Admin.php:196
+msgid "Secret key"
+msgstr ""
+
+#: includes/Admin.php:198
+msgid "Leave blank to keep the existing stored secret."
+msgstr ""
+
+#: includes/Admin.php:201
+msgid "Local testing"
+msgstr ""
+
+#: includes/Admin.php:206
+msgid "Save settings"
+msgstr ""
+
+#: includes/Admin.php:212
+msgid "Runs safe diagnostics without sending mail, submitting a form, or creating feedback posts. Cloudflare validation occurs only when you press the button."
+msgstr ""
+
+#: includes/Admin.php:218
+#: includes/Admin.php:222
 msgid "Run health check"
 msgstr ""
 
-#: includes/Admin.php:202
+#: includes/Admin.php:235
 msgid "Sorry, you are not allowed to run this health check."
 msgstr ""
 
-#: includes/Admin.php:219
+#: includes/Admin.php:252
 msgid "Localhost test keys"
 msgstr ""
 
-#: includes/Admin.php:221
+#: includes/Admin.php:254
 msgid "For local development, use Cloudflare’s test keys. The setup button saves the always-pass pair and enables Turnstile."
 msgstr ""
 
-#: includes/Admin.php:222
+#: includes/Admin.php:255
 msgid "Set up local dev"
 msgstr ""
 
-#: includes/Admin.php:223
+#: includes/Admin.php:256
 msgid "Always-pass site key"
 msgstr ""
 
-#: includes/Admin.php:224
+#: includes/Admin.php:257
 msgid "Always-pass secret key"
 msgstr ""
 
-#: includes/Admin.php:225
+#: includes/Admin.php:258
 msgid "Always-pass test keys are blocked when WordPress reports a production environment."
 msgstr ""
 
-#: includes/Admin.php:226
+#: includes/Admin.php:259
 msgid "Always-fail site key"
 msgstr ""
 
-#: includes/Admin.php:227
+#: includes/Admin.php:260
 msgid "Always-fail secret key"
 msgstr ""
 
-#: includes/Admin.php:228
+#: includes/Admin.php:261
 msgid "Use the always-fail pair only when testing validation errors, failed health checks, and visitor retry messaging."
 msgstr ""
 
 #. translators: %s: health-check status.
-#: includes/Admin.php:248
+#: includes/Admin.php:281
 #, php-format
 msgid "Latest result: %s"
 msgstr ""
 
-#: includes/Admin.php:250
+#: includes/Admin.php:283
 msgid "Check"
 msgstr ""
 
-#: includes/Admin.php:250
+#: includes/Admin.php:283
 msgid "Status"
 msgstr ""
 
-#: includes/Admin.php:250
+#: includes/Admin.php:283
 msgid "Detail"
 msgstr ""
 
-#: includes/Admin.php:255
+#: includes/Admin.php:288
 msgid "FAIL"
 msgstr ""
 
