@@ -1,3 +1,8 @@
+body.settings_page_ran-turnstile-for-jetpack-forms #screen-meta-links {
+	position: relative;
+	z-index: 2;
+}
+
 .ran-turnstile-settings-form,
 .ran-turnstile-settings-section {
 	max-width: 960px;

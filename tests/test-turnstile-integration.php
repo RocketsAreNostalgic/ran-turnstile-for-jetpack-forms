@@ -200,6 +200,11 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'ran-admin-shell__background', $html );
 		$this->assertStringNotContainsString( 'ran-admin-shell__navigation', $html );
 		$this->assertStringNotContainsString( 'ran-admin-shell__actions', $html );
+		$shell_position = strpos( $html, 'class="ran-admin-shell' );
+		$wrap_position  = strpos( $html, '<div class="wrap">' );
+		$this->assertNotFalse( $shell_position );
+		$this->assertNotFalse( $wrap_position );
+		$this->assertLessThan( $wrap_position, $shell_position );
 		$this->assertStringContainsString( 'only when Cloudflare requires visitor interaction (recommended)', $html );
 		$this->assertMatchesRegularExpression( '/id="ran-turnstile-for-jetpack-forms-health-check-form"[\s\S]+class="cf-turnstile"[^>]+data-appearance="always"/', $html );
 	}

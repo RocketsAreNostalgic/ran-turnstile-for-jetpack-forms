@@ -4,7 +4,7 @@
 	color: #fff;
 	isolation: isolate;
 	margin-block: 0 24px;
-	overflow: hidden;
+	overflow: clip;
 	position: relative;
 }
 

@@ -168,9 +168,8 @@ final class Admin {
 			'strapline' => __( 'Protect every Jetpack form on this site with Cloudflare Turnstile.', 'ran-turnstile-for-jetpack-forms' ),
 		);
 		?>
+		<?php include RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR . 'includes/generated/ran-admin-shell.php'; ?>
 		<div class="wrap">
-			<?php include RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR . 'includes/generated/ran-admin-shell.php'; ?>
-
 			<?php if ( Settings::has_legacy_runtime_conflict() ) : ?>
 				<div class="notice notice-error inline"><p><?php esc_html_e( 'Runtime protection is paused because RAN Octopus Forms still has Turnstile enabled. Disable the old feature before cutover; otherwise both plugins would render and validate a widget.', 'ran-turnstile-for-jetpack-forms' ); ?></p></div>
 			<?php endif; ?>
