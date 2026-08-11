@@ -22,6 +22,7 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		delete_site_option( 'active_sitewide_plugins' );
 		update_option( 'active_plugins', array() );
 		$GLOBALS['wp_settings_errors'] = array();
+		$_GET                          = array();
 		$_POST                         = array();
 		unset( $_SERVER['HTTP_CF_CONNECTING_IP'], $_SERVER['HTTP_X_FORWARDED_FOR'], $_SERVER['REMOTE_ADDR'] );
 		remove_all_filters( 'pre_http_request' );
@@ -42,6 +43,7 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 
 	/** Restore request state. */
 	public function tear_down() {
+		$_GET  = array();
 		$_POST = array();
 		unset( $_SERVER['HTTP_CF_CONNECTING_IP'], $_SERVER['HTTP_X_FORWARDED_FOR'], $_SERVER['REMOTE_ADDR'] );
 		remove_all_filters( 'pre_http_request' );
@@ -202,8 +204,9 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'ran-admin-shell__background', $html );
 		$this->assertStringContainsString( 'ran-admin-shell__navigation', $html );
 		$this->assertSame( 1, substr_count( $html, 'aria-current="page"' ) );
-		$this->assertStringContainsString( 'Credentials and local testing', $html );
-		$this->assertStringContainsString( '>Other</a>', $html );
+		$this->assertStringContainsString( '>Settings</a>', $html );
+		$this->assertStringContainsString( '>Overview</a>', $html );
+		$this->assertStringNotContainsString( '>Other</a>', $html );
 		$this->assertStringNotContainsString( 'ran-admin-shell__actions', $html );
 		$shell_position = strpos( $html, 'class="ran-admin-shell' );
 		$wrap_position  = strpos( $html, '<div class="wrap">' );
@@ -255,25 +258,41 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$this->configure_enabled_plugin();
 		Admin::enqueue_scripts( 'settings_page_' . Admin::PAGE_SLUG );
 		$this->assertTrue( wp_script_is( Admin::HEALTH_SCRIPT_HANDLE, 'enqueued' ) );
+
+		wp_dequeue_script( Admin::HEALTH_SCRIPT_HANDLE );
+		wp_deregister_script( Admin::HEALTH_SCRIPT_HANDLE );
+		$_GET['tab'] = 'overview';
+		Admin::enqueue_scripts( 'settings_page_' . Admin::PAGE_SLUG );
+		$this->assertFalse( wp_script_is( Admin::HEALTH_SCRIPT_HANDLE, 'enqueued' ) );
 	}
 
-	/** Contextual Help is consumer-owned and appears only on the settings screen. */
-	public function test_native_help_registers_three_tabs_on_the_exact_screen() {
-		set_current_screen( 'dashboard' );
-		Admin::register_help();
-		$this->assertSame( array(), get_current_screen()->get_help_tabs() );
-
+	/** Overview replaces native Help with product context and owned support links. */
+	public function test_overview_tab_replaces_native_help_and_omits_settings_controls() {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 		set_current_screen( 'settings_page_' . Admin::PAGE_SLUG );
-		Admin::register_help();
-		$screen = get_current_screen();
+		$_GET['tab'] = 'overview';
 
-		$this->assertCount( 3, $screen->get_help_tabs() );
-		$this->assertSame(
-			array( 'ran-turnstile-overview', 'ran-turnstile-credentials', 'ran-turnstile-troubleshooting' ),
-			array_values( wp_list_pluck( $screen->get_help_tabs(), 'id' ) )
-		);
-		$this->assertStringContainsString( 'Turnstile validation', $screen->get_help_sidebar() );
-		$this->assertStringContainsString( 'Turnstile testing keys', $screen->get_help_sidebar() );
+		ob_start();
+		Admin::render_page();
+		$html = (string) ob_get_clean();
+
+		$this->assertSame( array(), get_current_screen()->get_help_tabs() );
+		$this->assertFalse( method_exists( Admin::class, 'register_help' ) );
+		$this->assertSame( 1, substr_count( $html, '<h1 ' ) );
+		$this->assertSame( 1, substr_count( $html, 'aria-current="page"' ) );
+		$this->assertStringContainsString( 'Turnstile protection for Jetpack Forms', $html );
+		$this->assertStringContainsString( 'assets/cloudflare-turnstile-logo.svg', $html );
+		$this->assertStringContainsString( 'assets/jetpack-logo.svg', $html );
+		$this->assertStringContainsString( 'https://jetpack.com/forms/', $html );
+		$this->assertStringContainsString( 'https://jetpack.com/resources/wordpress-contact-form/', $html );
+		$this->assertStringContainsString( 'https://jetpack.com/support/jetpack-blocks/contact-form/', $html );
+		$this->assertStringContainsString( 'https://developers.cloudflare.com/turnstile/', $html );
+		$this->assertStringContainsString( 'https://developers.cloudflare.com/turnstile/get-started/server-side-validation/', $html );
+		$this->assertStringContainsString( 'https://developers.cloudflare.com/turnstile/troubleshooting/testing/', $html );
+		$this->assertStringContainsString( 'https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues', $html );
+		$this->assertStringContainsString( 'href="https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms" target=', $html );
+		$this->assertStringNotContainsString( Settings::OPTION_NAME . '[turnstile_enabled]', $html );
+		$this->assertStringNotContainsString( 'ran-turnstile-for-jetpack-forms-health-check-form', $html );
 	}
 
 	/** Runtime hooks run late for collision detection and before Akismet for validation. */

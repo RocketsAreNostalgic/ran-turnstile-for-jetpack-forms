@@ -42,51 +42,12 @@ final class Admin {
 
 	/** Add Settings submenu. */
 	public static function add_page() {
-		$hook_suffix = add_options_page(
+		add_options_page(
 			__( 'RAN Turnstile for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ),
 			__( 'RAN Turnstile', 'ran-turnstile-for-jetpack-forms' ),
 			'manage_options',
 			self::PAGE_SLUG,
 			array( __CLASS__, 'render_page' )
-		);
-
-		if ( $hook_suffix ) {
-			add_action( 'load-' . $hook_suffix, array( __CLASS__, 'register_help' ) );
-		}
-	}
-
-	/** Register optional native contextual Help for this screen. */
-	public static function register_help() {
-		$screen = get_current_screen();
-		if ( ! $screen || 'settings_page_' . self::PAGE_SLUG !== $screen->id ) {
-			return;
-		}
-
-		$screen->add_help_tab(
-			array(
-				'id'      => 'ran-turnstile-overview',
-				'title'   => __( 'Overview', 'ran-turnstile-for-jetpack-forms' ),
-				'content' => '<p>' . esc_html__( 'RAN Turnstile adds Cloudflare Turnstile protection to every Jetpack form on this site.', 'ran-turnstile-for-jetpack-forms' ) . '</p>',
-			)
-		);
-		$screen->add_help_tab(
-			array(
-				'id'      => 'ran-turnstile-credentials',
-				'title'   => __( 'Credentials and local testing', 'ran-turnstile-for-jetpack-forms' ),
-				'content' => '<p>' . esc_html__( 'Enter the Cloudflare site and secret keys for this site. For local development, the settings form can install Cloudflare’s always-pass test pair; production environments reject those test keys.', 'ran-turnstile-for-jetpack-forms' ) . '</p>',
-			)
-		);
-		$screen->add_help_tab(
-			array(
-				'id'      => 'ran-turnstile-troubleshooting',
-				'title'   => __( 'Troubleshooting', 'ran-turnstile-for-jetpack-forms' ),
-				'content' => '<p>' . esc_html__( 'Use the health check to verify configuration and Cloudflare validation without sending mail, submitting a form or creating feedback posts.', 'ran-turnstile-for-jetpack-forms' ) . '</p>',
-			)
-		);
-		$screen->set_help_sidebar(
-			'<p><strong>' . esc_html__( 'Cloudflare documentation', 'ran-turnstile-for-jetpack-forms' ) . '</strong></p>'
-			. '<p><a href="' . esc_url( 'https://developers.cloudflare.com/turnstile/get-started/server-side-validation/' ) . '">' . esc_html__( 'Turnstile validation', 'ran-turnstile-for-jetpack-forms' ) . '</a></p>'
-			. '<p><a href="' . esc_url( 'https://developers.cloudflare.com/turnstile/troubleshooting/testing/' ) . '">' . esc_html__( 'Turnstile testing keys', 'ran-turnstile-for-jetpack-forms' ) . '</a></p>'
 		);
 	}
 
@@ -134,6 +95,13 @@ final class Admin {
 		<?php
 	}
 
+	/** Return the selected shell tab, defaulting invalid input to Settings. */
+	private static function get_active_tab() {
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'settings'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only view selection.
+
+		return 'overview' === $tab ? 'overview' : 'settings';
+	}
+
 	/** Enqueue exact-screen styles and the conditional health-check widget. */
 	public static function enqueue_scripts( $hook_suffix ) {
 		if ( 'settings_page_' . self::PAGE_SLUG !== $hook_suffix ) {
@@ -143,7 +111,7 @@ final class Admin {
 		wp_enqueue_style( self::SHELL_STYLE_HANDLE, RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_URL . 'assets/ran-admin-shell.css', array(), RAN_TURNSTILE_FOR_JETPACK_FORMS_VERSION );
 		wp_enqueue_style( self::ADMIN_STYLE_HANDLE, RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_URL . 'assets/admin.css', array( self::SHELL_STYLE_HANDLE ), RAN_TURNSTILE_FOR_JETPACK_FORMS_VERSION );
 
-		if ( ! Settings::can_use_turnstile() || Settings::has_legacy_runtime_conflict() ) {
+		if ( 'settings' !== self::get_active_tab() || ! Settings::can_use_turnstile() || Settings::has_legacy_runtime_conflict() ) {
 			return;
 		}
 
@@ -153,6 +121,55 @@ final class Admin {
 			'window.ranTurnstileForJetpackFormsReady=function(){var button=document.getElementById("ran-turnstile-for-jetpack-forms-run-health-check");if(button){button.disabled=false;}};window.ranTurnstileForJetpackFormsExpired=function(){var button=document.getElementById("ran-turnstile-for-jetpack-forms-run-health-check");if(button){button.disabled=true;}};document.addEventListener("DOMContentLoaded",function(){var widget=document.querySelector("#ran-turnstile-for-jetpack-forms-health-check-form .cf-turnstile");var button=document.getElementById("ran-turnstile-for-jetpack-forms-run-health-check");if(widget&&button){button.disabled=true;}});',
 			'before'
 		);
+	}
+
+	/** Render the consumer-owned product overview and support links. */
+	private static function render_overview() {
+		?>
+		<div class="ran-turnstile-overview">
+			<section class="ran-turnstile-overview__panel" aria-labelledby="ran-turnstile-overview-title">
+				<header class="ran-turnstile-overview__header">
+					<div class="ran-turnstile-overview__brands" aria-hidden="true">
+						<img class="ran-turnstile-overview__turnstile-logo" src="<?php echo esc_url( RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_URL . 'assets/cloudflare-turnstile-logo.svg' ); ?>" width="54" height="54" alt="" />
+						<span class="ran-turnstile-overview__plus">+</span>
+						<img class="ran-turnstile-overview__jetpack-logo" src="<?php echo esc_url( RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_URL . 'assets/jetpack-logo.svg' ); ?>" width="140" height="38" alt="" />
+					</div>
+					<h2 id="ran-turnstile-overview-title"><?php esc_html_e( 'Turnstile protection for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ); ?></h2>
+				</header>
+				<p><?php esc_html_e( 'RAN Turnstile for Jetpack Forms adds Cloudflare Turnstile verification to every Jetpack Form on this site while preserving Jetpack’s existing form and Akismet workflow.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
+				<p><?php esc_html_e( 'The plugin renders a Turnstile challenge with each protected form and verifies its token before the Jetpack submission continues. Configuration is site-wide; use the Settings tab to add credentials, choose the widget presentation and run a health check.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
+			</section>
+
+			<section class="ran-turnstile-overview__panel" aria-labelledby="ran-turnstile-resources-title">
+				<h2 id="ran-turnstile-resources-title"><?php esc_html_e( 'Documentation and support', 'ran-turnstile-for-jetpack-forms' ); ?></h2>
+				<div class="ran-turnstile-overview__resources">
+					<div class="ran-turnstile-overview__resource-group">
+						<h3><?php esc_html_e( 'Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ); ?></h3>
+						<ul>
+							<li><a href="https://jetpack.com/forms/" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ); ?></a></li>
+							<li><a href="https://jetpack.com/resources/wordpress-contact-form/" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'How to create a WordPress contact form', 'ran-turnstile-for-jetpack-forms' ); ?></a></li>
+							<li><a href="https://jetpack.com/support/jetpack-blocks/contact-form/" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Jetpack Form block support', 'ran-turnstile-for-jetpack-forms' ); ?></a></li>
+						</ul>
+					</div>
+					<div class="ran-turnstile-overview__resource-group">
+						<h3><?php esc_html_e( 'Cloudflare Turnstile', 'ran-turnstile-for-jetpack-forms' ); ?></h3>
+						<ul>
+							<li><a href="https://developers.cloudflare.com/turnstile/" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Turnstile documentation', 'ran-turnstile-for-jetpack-forms' ); ?></a></li>
+							<li><a href="https://developers.cloudflare.com/turnstile/get-started/server-side-validation/" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Turnstile validation', 'ran-turnstile-for-jetpack-forms' ); ?></a></li>
+							<li><a href="https://developers.cloudflare.com/turnstile/troubleshooting/testing/" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Turnstile testing keys', 'ran-turnstile-for-jetpack-forms' ); ?></a></li>
+						</ul>
+					</div>
+					<div class="ran-turnstile-overview__resource-group">
+						<h3><?php esc_html_e( 'Plugin support', 'ran-turnstile-for-jetpack-forms' ); ?></h3>
+						<ul>
+							<li><a href="https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Report an issue on GitHub', 'ran-turnstile-for-jetpack-forms' ); ?></a></li>
+							<li><a href="https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Plugin repository', 'ran-turnstile-for-jetpack-forms' ); ?></a></li>
+						</ul>
+					</div>
+				</div>
+			</section>
+		</div>
+		<?php
 	}
 
 	/** Render settings and diagnostics. */
@@ -165,6 +182,7 @@ final class Admin {
 		$has_saved_secret = '' !== (string) $settings['turnstile_secret_key'];
 		$health           = self::get_health_result();
 		$page_url         = admin_url( 'options-general.php?page=' . self::PAGE_SLUG );
+		$active_tab       = self::get_active_tab();
 		$ran_admin_shell  = array(
 			'name'             => __( 'RAN Turnstile for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ),
 			'strapline'        => __( 'Protect every Jetpack form on this site with Cloudflare Turnstile.', 'ran-turnstile-for-jetpack-forms' ),
@@ -176,32 +194,24 @@ final class Admin {
 			'navigation_label' => __( 'RAN Turnstile', 'ran-turnstile-for-jetpack-forms' ),
 			'navigation'       => array(
 				array(
-					'label'   => __( 'Overview', 'ran-turnstile-for-jetpack-forms' ),
+					'label'   => __( 'Settings', 'ran-turnstile-for-jetpack-forms' ),
 					'url'     => $page_url,
-					'current' => true,
+					'current' => 'settings' === $active_tab,
 				),
 				array(
-					'label' => __( 'Settings', 'ran-turnstile-for-jetpack-forms' ),
-					'url'   => $page_url . '#ran-turnstile-settings',
-				),
-				array(
-					'label' => __( 'Credentials and local testing', 'ran-turnstile-for-jetpack-forms' ),
-					'url'   => $page_url . '#ran-turnstile-local-testing',
-				),
-				array(
-					'label' => __( 'Troubleshooting', 'ran-turnstile-for-jetpack-forms' ),
-					'url'   => $page_url . '#ran-turnstile-troubleshooting',
-				),
-				array(
-					'label' => __( 'Other', 'ran-turnstile-for-jetpack-forms' ),
-					'url'   => $page_url,
+					'label'   => __( 'Overview', 'ran-turnstile-for-jetpack-forms' ),
+					'url'     => add_query_arg( 'tab', 'overview', $page_url ),
+					'current' => 'overview' === $active_tab,
 				),
 			),
 		);
 		?>
 		<?php include RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR . 'includes/generated/ran-admin-shell.php'; ?>
 		<div class="wrap">
-			<?php if ( Settings::has_legacy_runtime_conflict() ) : ?>
+			<?php if ( 'overview' === $active_tab ) : ?>
+				<?php self::render_overview(); ?>
+			<?php else : ?>
+				<?php if ( Settings::has_legacy_runtime_conflict() ) : ?>
 				<div class="notice notice-error inline"><p><?php esc_html_e( 'Runtime protection is paused because RAN Octopus Forms still has Turnstile enabled. Disable the old feature before cutover; otherwise both plugins would render and validate a widget.', 'ran-turnstile-for-jetpack-forms' ); ?></p></div>
 			<?php endif; ?>
 
@@ -265,6 +275,7 @@ final class Admin {
 					<?php self::render_health_result( $health ); ?>
 				</div>
 			</div>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
