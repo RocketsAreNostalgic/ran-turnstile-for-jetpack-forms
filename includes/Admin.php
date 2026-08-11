@@ -163,9 +163,34 @@ final class Admin {
 
 		$settings        = Settings::get_all();
 		$health          = self::get_health_result();
+		$page_url        = admin_url( 'options-general.php?page=' . self::PAGE_SLUG );
 		$ran_admin_shell = array(
-			'name'      => __( 'RAN Turnstile for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ),
-			'strapline' => __( 'Protect every Jetpack form on this site with Cloudflare Turnstile.', 'ran-turnstile-for-jetpack-forms' ),
+			'name'             => __( 'RAN Turnstile for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ),
+			'strapline'        => __( 'Protect every Jetpack form on this site with Cloudflare Turnstile.', 'ran-turnstile-for-jetpack-forms' ),
+			'navigation_label' => __( 'RAN Turnstile', 'ran-turnstile-for-jetpack-forms' ),
+			'navigation'       => array(
+				array(
+					'label'   => __( 'Overview', 'ran-turnstile-for-jetpack-forms' ),
+					'url'     => $page_url,
+					'current' => true,
+				),
+				array(
+					'label' => __( 'Settings', 'ran-turnstile-for-jetpack-forms' ),
+					'url'   => $page_url . '#ran-turnstile-settings',
+				),
+				array(
+					'label' => __( 'Credentials and local testing', 'ran-turnstile-for-jetpack-forms' ),
+					'url'   => $page_url . '#ran-turnstile-local-testing',
+				),
+				array(
+					'label' => __( 'Troubleshooting', 'ran-turnstile-for-jetpack-forms' ),
+					'url'   => $page_url . '#ran-turnstile-troubleshooting',
+				),
+				array(
+					'label' => __( 'Other', 'ran-turnstile-for-jetpack-forms' ),
+					'url'   => $page_url,
+				),
+			),
 		);
 		?>
 		<?php include RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_DIR . 'includes/generated/ran-admin-shell.php'; ?>
@@ -174,7 +199,7 @@ final class Admin {
 				<div class="notice notice-error inline"><p><?php esc_html_e( 'Runtime protection is paused because RAN Octopus Forms still has Turnstile enabled. Disable the old feature before cutover; otherwise both plugins would render and validate a widget.', 'ran-turnstile-for-jetpack-forms' ); ?></p></div>
 			<?php endif; ?>
 
-			<form class="ran-turnstile-settings-form" method="post" action="options.php">
+			<form id="ran-turnstile-settings" class="ran-turnstile-settings-form" method="post" action="options.php">
 				<?php settings_fields( 'ran_turnstile_for_jetpack_forms' ); ?>
 				<fieldset class="postbox ran-turnstile-fieldset">
 					<legend class="hndle"><span><?php esc_html_e( 'Cloudflare Turnstile', 'ran-turnstile-for-jetpack-forms' ); ?></span></legend>
@@ -196,7 +221,7 @@ final class Admin {
 							<input id="ran-turnstile-secret-key" class="regular-text code" type="password" name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[turnstile_secret_key]" value="" autocomplete="new-password" />
 							<p class="description"><?php esc_html_e( 'Leave blank to keep the existing stored secret.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
 						</div>
-						<div class="ran-turnstile-field">
+						<div id="ran-turnstile-local-testing" class="ran-turnstile-field">
 							<span class="ran-turnstile-field-label"><?php esc_html_e( 'Local testing', 'ran-turnstile-for-jetpack-forms' ); ?></span>
 							<?php self::render_local_testing_details(); ?>
 						</div>
@@ -205,7 +230,7 @@ final class Admin {
 				<?php submit_button( __( 'Save settings', 'ran-turnstile-for-jetpack-forms' ) ); ?>
 			</form>
 
-			<div class="postbox ran-turnstile-settings-section">
+			<div id="ran-turnstile-troubleshooting" class="postbox ran-turnstile-settings-section">
 				<h2 class="hndle"><span><?php esc_html_e( 'Troubleshooting', 'ran-turnstile-for-jetpack-forms' ); ?></span></h2>
 				<div class="inside">
 					<p><?php esc_html_e( 'Runs safe diagnostics without sending mail, submitting a form, or creating feedback posts. Cloudflare validation occurs only when you press the button.', 'ran-turnstile-for-jetpack-forms' ); ?></p>

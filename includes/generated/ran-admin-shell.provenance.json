@@ -2,7 +2,7 @@
     "schema": 1,
     "package": "ran/admin-shell",
     "version": "dev-main",
-    "reference": "9af746b8fde14ff9a3d7804124e2e5c0dbcc9e4e",
+    "reference": "c282ddcf99c627dee5d4d5f1d6b2ca8c14b797e8",
     "files": {
         "assets/ran-admin-shell.css": "sha256:66915c45393c2759a785e46f945308d4199b0b75f1f4dac8e7af258e0363a362",
         "includes/generated/ran-admin-shell.php": "sha256:2c8070adbd20691a702f7ec70ea942c6eb484a09b7a37d24b9bfa54a2f210bf8"

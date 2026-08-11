@@ -198,7 +198,10 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'Protect every Jetpack form on this site with Cloudflare Turnstile.', $html );
 		$this->assertStringNotContainsString( 'ran-admin-shell__logo', $html );
 		$this->assertStringNotContainsString( 'ran-admin-shell__background', $html );
-		$this->assertStringNotContainsString( 'ran-admin-shell__navigation', $html );
+		$this->assertStringContainsString( 'ran-admin-shell__navigation', $html );
+		$this->assertSame( 1, substr_count( $html, 'aria-current="page"' ) );
+		$this->assertStringContainsString( 'Credentials and local testing', $html );
+		$this->assertStringContainsString( '>Other</a>', $html );
 		$this->assertStringNotContainsString( 'ran-admin-shell__actions', $html );
 		$shell_position = strpos( $html, 'class="ran-admin-shell' );
 		$wrap_position  = strpos( $html, '<div class="wrap">' );
