@@ -1065,12 +1065,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/RocketsAreNostalgic/ran-admin-shell.git",
-                "reference": "ad05ad5f6d20735d6815bd8ac142514ef2c9d8c2"
+                "reference": "de80ca9463404bc185a34603d5c5a1f6a2f31779"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/RocketsAreNostalgic/ran-admin-shell/zipball/ad05ad5f6d20735d6815bd8ac142514ef2c9d8c2",
-                "reference": "ad05ad5f6d20735d6815bd8ac142514ef2c9d8c2",
+                "url": "https://api.github.com/repos/RocketsAreNostalgic/ran-admin-shell/zipball/de80ca9463404bc185a34603d5c5a1f6a2f31779",
+                "reference": "de80ca9463404bc185a34603d5c5a1f6a2f31779",
                 "shasum": ""
             },
             "require": {
@@ -1110,7 +1110,7 @@
                 "source": "https://github.com/RocketsAreNostalgic/ran-admin-shell/tree/main",
                 "issues": "https://github.com/RocketsAreNostalgic/ran-admin-shell/issues"
             },
-            "time": "2026-08-11T10:03:15+00:00"
+            "time": "2026-08-11T10:14:55+00:00"
         },
         {
             "name": "sebastian/cli-parser",
