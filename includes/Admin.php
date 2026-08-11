@@ -161,10 +161,11 @@ final class Admin {
 			return;
 		}
 
-		$settings        = Settings::get_all();
-		$health          = self::get_health_result();
-		$page_url        = admin_url( 'options-general.php?page=' . self::PAGE_SLUG );
-		$ran_admin_shell = array(
+		$settings         = Settings::get_all();
+		$has_saved_secret = '' !== (string) $settings['turnstile_secret_key'];
+		$health           = self::get_health_result();
+		$page_url         = admin_url( 'options-general.php?page=' . self::PAGE_SLUG );
+		$ran_admin_shell  = array(
 			'name'             => __( 'RAN Turnstile for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ),
 			'strapline'        => __( 'Protect every Jetpack form on this site with Cloudflare Turnstile.', 'ran-turnstile-for-jetpack-forms' ),
 			'navigation_label' => __( 'RAN Turnstile', 'ran-turnstile-for-jetpack-forms' ),
@@ -218,8 +219,18 @@ final class Admin {
 						</div>
 						<div class="ran-turnstile-field">
 							<label for="ran-turnstile-secret-key"><?php esc_html_e( 'Secret key', 'ran-turnstile-for-jetpack-forms' ); ?></label>
-							<input id="ran-turnstile-secret-key" class="regular-text code" type="password" name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[turnstile_secret_key]" value="" autocomplete="new-password" />
-							<p class="description"><?php esc_html_e( 'Leave blank to keep the existing stored secret.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
+							<input id="ran-turnstile-secret-key" class="regular-text code" type="password" name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[turnstile_secret_key]" value=""
+							<?php if ( $has_saved_secret ) : ?>
+								placeholder="••••••••••••"
+							<?php endif; ?>
+							autocomplete="new-password" aria-describedby="ran-turnstile-secret-key-description" />
+							<p id="ran-turnstile-secret-key-description" class="description">
+								<?php if ( $has_saved_secret ) : ?>
+									<?php esc_html_e( 'Cloudflare secret saved.', 'ran-turnstile-for-jetpack-forms' ); ?>
+								<?php else : ?>
+									<?php esc_html_e( 'Enter the Cloudflare secret key. After it is saved, this field will show dots instead of the key.', 'ran-turnstile-for-jetpack-forms' ); ?>
+								<?php endif; ?>
+							</p>
 						</div>
 						<div id="ran-turnstile-local-testing" class="ran-turnstile-field">
 							<span class="ran-turnstile-field-label"><?php esc_html_e( 'Local testing', 'ran-turnstile-for-jetpack-forms' ); ?></span>

@@ -212,6 +212,33 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$this->assertMatchesRegularExpression( '/id="ran-turnstile-for-jetpack-forms-health-check-form"[\s\S]+class="cf-turnstile"[^>]+data-appearance="always"/', $html );
 	}
 
+	/** A saved secret is represented by a non-secret placeholder and concise saved-state guidance. */
+	public function test_admin_secret_field_uses_safe_saved_indicator() {
+		update_option( Settings::OPTION_NAME, array( 'turnstile_secret_key' => 'stored-secret-must-not-render' ) );
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		ob_start();
+		Admin::render_page();
+		$html = (string) ob_get_clean();
+
+		$this->assertMatchesRegularExpression( '/id="ran-turnstile-secret-key"[^>]+value=""[^>]+placeholder="••••••••••••"/', $html );
+		$this->assertStringNotContainsString( 'stored-secret-must-not-render', $html );
+		$this->assertStringContainsString( 'Cloudflare secret saved.', $html );
+	}
+
+	/** An empty secret field invites first-time configuration without a saved-state indicator. */
+	public function test_admin_secret_field_without_saved_secret_has_setup_guidance() {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		ob_start();
+		Admin::render_page();
+		$html = (string) ob_get_clean();
+
+		$this->assertMatchesRegularExpression( '/id="ran-turnstile-secret-key"[^>]+value=""(?![^>]+placeholder=)[^>]*>/', $html );
+		$this->assertStringContainsString( 'Enter the Cloudflare secret key. After it is saved, this field will show dots instead of the key.', $html );
+		$this->assertStringNotContainsString( 'Cloudflare secret saved.', $html );
+	}
+
 	/** Shared and consumer styles are exact-screen while Cloudflare stays conditional. */
 	public function test_admin_assets_keep_shell_independent_from_cloudflare() {
 		Admin::enqueue_scripts( 'dashboard' );
