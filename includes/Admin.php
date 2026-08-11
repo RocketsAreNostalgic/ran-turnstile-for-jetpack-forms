@@ -168,6 +168,11 @@ final class Admin {
 		$ran_admin_shell  = array(
 			'name'             => __( 'RAN Turnstile for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ),
 			'strapline'        => __( 'Protect every Jetpack form on this site with Cloudflare Turnstile.', 'ran-turnstile-for-jetpack-forms' ),
+			'logo'             => array(
+				'url'    => RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_URL . 'assets/ran-turnstile-mark.svg',
+				'width'  => 54,
+				'height' => 54,
+			),
 			'navigation_label' => __( 'RAN Turnstile', 'ran-turnstile-for-jetpack-forms' ),
 			'navigation'       => array(
 				array(
