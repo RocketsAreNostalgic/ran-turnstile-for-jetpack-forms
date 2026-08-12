@@ -7,6 +7,10 @@
  * @package RAN_Admin_Shell
  */
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 if ( ! isset( $ran_admin_shell ) || ! is_array( $ran_admin_shell ) ) {
 	return;
 }
