@@ -32,10 +32,24 @@ jobs:
         with:
           node-version-file: .node-version
 
+      # setup-php can stall indefinitely mid-provision when an upstream package
+      # fetch hangs, so bound each attempt and retry once on a fresh process.
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
-        timeout-minutes: 5
+        id: php
+        continue-on-error: true
+        timeout-minutes: 3
         with:
-          php-version: '8.3'
+          php-version: '8.5'
+          coverage: none
+          extensions: zip
+          tools: composer:v2, wp-cli
+
+      - name: Retry the bounded PHP setup once
+        if: steps.php.outcome == 'failure'
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        timeout-minutes: 3
+        with:
+          php-version: '8.5'
           coverage: none
           extensions: zip
           tools: composer:v2, wp-cli
@@ -83,13 +97,10 @@ jobs:
               release_candidate=true
           fi
 
-          # PHP 8.5 alone temporarily uses GitHub-hosted Ubuntu because Blacksmith
-          # run 31581704112 attempts 1 and 2 stalled during setup-php.
-          # TODO: Restore PHP 8.5 to Blacksmith after provider/upstream resolution.
           if [[ "$release_candidate" == true ]]; then
-              matrix='{"include":[{"php":"8.5","wordpress":"latest","jetpack":"latest","runner":"ubuntu-24.04"}]}'
+              matrix='{"include":[{"php":"8.5","wordpress":"latest","jetpack":"latest"}]}'
           else
-              matrix='{"include":[{"php":"8.0","wordpress":"6.5","jetpack":"13.3.1","runner":"blacksmith-2vcpu-ubuntu-2404"},{"php":"8.5","wordpress":"latest","jetpack":"latest","runner":"ubuntu-24.04"}]}'
+              matrix='{"include":[{"php":"8.0","wordpress":"6.5","jetpack":"13.3.1"},{"php":"8.5","wordpress":"latest","jetpack":"latest"}]}'
           fi
 
           {
@@ -112,7 +123,7 @@ jobs:
   compatibility:
     name: PHP ${{ matrix.php }} / WordPress ${{ matrix.wordpress }} / Jetpack ${{ matrix.jetpack }}
     needs: quality
-    runs-on: ${{ matrix.runner }}
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     services:
       mysql:
         image: mysql:8.0
@@ -135,7 +146,19 @@ jobs:
           persist-credentials: false
 
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
-        timeout-minutes: 5
+        id: php
+        continue-on-error: true
+        timeout-minutes: 3
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          extensions: mysqli, zip
+          tools: composer:v2, wp-cli
+
+      - name: Retry the bounded PHP setup once
+        if: steps.php.outcome == 'failure'
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        timeout-minutes: 3
         with:
           php-version: ${{ matrix.php }}
           coverage: none
