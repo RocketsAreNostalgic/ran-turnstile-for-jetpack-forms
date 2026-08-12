@@ -68,7 +68,7 @@ msgid "Turnstile protection for Jetpack Forms"
 msgstr ""
 
 #: includes/Admin.php:140
-msgid "RAN Turnstile for Jetpack Forms adds Cloudflare Turnstile verification to every Jetpack Form on this site while preserving Jetpack’s existing form and Akismet workflow."
+msgid "RAN Turnstile for Jetpack Forms adds Cloudflare Turnstile verification to every Jetpack Form on your site while preserving Jetpack’s existing form and Akismet workflow."
 msgstr ""
 
 #: includes/Admin.php:141
