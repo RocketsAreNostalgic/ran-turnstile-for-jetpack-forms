@@ -251,7 +251,7 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 	public function test_plugin_list_settings_action_opens_settings_tab() {
 		$links = Admin::plugin_action_links( array() );
 
-		$this->assertSame( 1, count( $links ) );
+		$this->assertCount( 1, $links );
 		$this->assertStringContainsString( 'tab=settings', $links[0] );
 		$this->assertStringContainsString( '>Settings</a>', $links[0] );
 	}
@@ -292,8 +292,12 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$this->assertFalse( method_exists( Admin::class, 'register_help' ) );
 		$this->assertSame( 1, substr_count( $html, '<h1 ' ) );
 		$this->assertSame( 1, substr_count( $html, 'aria-current="page"' ) );
-		$this->assertLessThan( strpos( $html, '>Settings</a>' ), strpos( $html, '>Overview</a>' ) );
-		$this->assertStringContainsString( 'Copyright &copy; ' . wp_date( 'Y' ), $html );
+		$overview_position = strpos( $html, '>Overview</a>' );
+		$settings_position = strpos( $html, '>Settings</a>' );
+		$this->assertNotFalse( $overview_position );
+		$this->assertNotFalse( $settings_position );
+		$this->assertLessThan( $settings_position, $overview_position );
+		$this->assertStringContainsString( 'Copyright © ' . wp_date( 'Y' ), $html );
 		$this->assertStringContainsString( 'href="https://github.com/RocketsAreNostalgic"', $html );
 		$this->assertStringContainsString( '>Rockets Are Nostalgic</a>', $html );
 		$this->assertStringContainsString( 'Turnstile protection for Jetpack Forms', $html );

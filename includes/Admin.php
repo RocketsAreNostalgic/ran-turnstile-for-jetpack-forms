@@ -289,7 +289,10 @@ final class Admin {
 			<hr>
 			<div class="ran-turnstile-footer">
 				<p>
-					Copyright &copy; <?php echo esc_html( wp_date( 'Y' ) ); ?>
+					<?php
+					/* translators: %s: current year. */
+					echo esc_html( sprintf( __( 'Copyright © %s', 'ran-turnstile-for-jetpack-forms' ), wp_date( 'Y' ) ) );
+					?>
 					<?php if ( '' !== $footer_author && '' !== $footer_author_url ) : ?>
 						<a href="<?php echo esc_url( $footer_author_url ); ?>"><?php echo esc_html( $footer_author ); ?></a>
 					<?php else : ?>
