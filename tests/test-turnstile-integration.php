@@ -198,7 +198,7 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$this->assertSame( 1, substr_count( $html, '<h1 ' ) );
 		$this->assertStringContainsString( 'class="ran-admin-shell', $html );
 		$this->assertStringContainsString( 'RAN Turnstile for Jetpack Forms', $html );
-		$this->assertStringContainsString( 'Protect every Jetpack form on this site with Cloudflare Turnstile.', $html );
+		$this->assertStringContainsString( 'Protect your Jetpack forms with Cloudflare Turnstile.', $html );
 		$this->assertStringContainsString( 'ran-admin-shell__logo', $html );
 		$this->assertStringContainsString( 'assets/ran-turnstile-mark.svg', $html );
 		$this->assertStringContainsString( 'width="54" height="54" alt="" aria-hidden="true"', $html );
