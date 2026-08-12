@@ -1,3 +1,11 @@
+.ran-turnstile-footer {
+	margin-block: 20px;
+	margin-inline: 0;
+	max-width: 960px;
+	position: relative;
+	text-align: center;
+}
+
 .ran-turnstile-settings-form,
 .ran-turnstile-settings-section,
 .ran-turnstile-overview {
@@ -40,6 +48,13 @@
 	display: block;
 	height: auto;
 	max-width: 100%;
+}
+
+.ran-turnstile-overview__brand-name {
+	color: #1d2327;
+	font-size: 28px;
+	font-weight: 600;
+	line-height: 1.2;
 }
 
 .ran-turnstile-overview__plus {

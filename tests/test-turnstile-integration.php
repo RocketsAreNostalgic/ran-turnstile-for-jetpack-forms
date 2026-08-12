@@ -188,6 +188,7 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 	public function test_admin_visibility_toggle_does_not_hide_health_widget() {
 		$this->configure_enabled_plugin();
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$_GET['tab'] = 'settings';
 
 		ob_start();
 		Admin::render_page();
@@ -197,7 +198,7 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$this->assertSame( 1, substr_count( $html, '<h1 ' ) );
 		$this->assertStringContainsString( 'class="ran-admin-shell', $html );
 		$this->assertStringContainsString( 'RAN Turnstile for Jetpack Forms', $html );
-		$this->assertStringContainsString( 'Protect every Jetpack form on this site with Cloudflare Turnstile.', $html );
+		$this->assertStringContainsString( 'Protect your Jetpack forms with Cloudflare Turnstile.', $html );
 		$this->assertStringContainsString( 'ran-admin-shell__logo', $html );
 		$this->assertStringContainsString( 'assets/ran-turnstile-mark.svg', $html );
 		$this->assertStringContainsString( 'width="54" height="54" alt="" aria-hidden="true"', $html );
@@ -221,6 +222,7 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 	public function test_admin_secret_field_uses_safe_saved_indicator() {
 		update_option( Settings::OPTION_NAME, array( 'turnstile_secret_key' => 'stored-secret-must-not-render' ) );
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$_GET['tab'] = 'settings';
 
 		ob_start();
 		Admin::render_page();
@@ -234,6 +236,7 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 	/** An empty secret field invites first-time configuration without a saved-state indicator. */
 	public function test_admin_secret_field_without_saved_secret_has_setup_guidance() {
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$_GET['tab'] = 'settings';
 
 		ob_start();
 		Admin::render_page();
@@ -242,6 +245,15 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$this->assertMatchesRegularExpression( '/id="ran-turnstile-secret-key"[^>]+value=""(?![^>]+placeholder=)[^>]*>/', $html );
 		$this->assertStringContainsString( 'Enter the Cloudflare secret key. After it is saved, this field will show dots instead of the key.', $html );
 		$this->assertStringNotContainsString( 'Cloudflare secret saved.', $html );
+	}
+
+	/** The plugin-list Settings action opens Settings instead of the Overview landing page. */
+	public function test_plugin_list_settings_action_opens_settings_tab() {
+		$links = Admin::plugin_action_links( array() );
+
+		$this->assertCount( 1, $links );
+		$this->assertStringContainsString( 'tab=settings', $links[0] );
+		$this->assertStringContainsString( '>Settings</a>', $links[0] );
 	}
 
 	/** Shared and consumer styles are exact-screen while Cloudflare stays conditional. */
@@ -256,6 +268,7 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$this->assertFalse( wp_script_is( Admin::HEALTH_SCRIPT_HANDLE, 'enqueued' ) );
 
 		$this->configure_enabled_plugin();
+		$_GET['tab'] = 'settings';
 		Admin::enqueue_scripts( 'settings_page_' . Admin::PAGE_SLUG );
 		$this->assertTrue( wp_script_is( Admin::HEALTH_SCRIPT_HANDLE, 'enqueued' ) );
 
@@ -266,11 +279,10 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$this->assertFalse( wp_script_is( Admin::HEALTH_SCRIPT_HANDLE, 'enqueued' ) );
 	}
 
-	/** Overview replaces native Help with product context and owned support links. */
-	public function test_overview_tab_replaces_native_help_and_omits_settings_controls() {
+	/** Overview is the default landing tab and replaces native Help with product context and owned support links. */
+	public function test_overview_is_the_default_tab_and_omits_settings_controls() {
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 		set_current_screen( 'settings_page_' . Admin::PAGE_SLUG );
-		$_GET['tab'] = 'overview';
 
 		ob_start();
 		Admin::render_page();
@@ -280,8 +292,17 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$this->assertFalse( method_exists( Admin::class, 'register_help' ) );
 		$this->assertSame( 1, substr_count( $html, '<h1 ' ) );
 		$this->assertSame( 1, substr_count( $html, 'aria-current="page"' ) );
+		$overview_position = strpos( $html, '>Overview</a>' );
+		$settings_position = strpos( $html, '>Settings</a>' );
+		$this->assertNotFalse( $overview_position );
+		$this->assertNotFalse( $settings_position );
+		$this->assertLessThan( $settings_position, $overview_position );
+		$this->assertStringContainsString( 'Copyright © ' . wp_date( 'Y' ), $html );
+		$this->assertStringContainsString( 'href="https://github.com/RocketsAreNostalgic"', $html );
+		$this->assertStringContainsString( '>Rockets Are Nostalgic</a>', $html );
 		$this->assertStringContainsString( 'Turnstile protection for Jetpack Forms', $html );
 		$this->assertStringContainsString( 'assets/cloudflare-turnstile-logo.svg', $html );
+		$this->assertStringContainsString( 'Cloudflare Turnstile', $html );
 		$this->assertStringContainsString( 'assets/jetpack-logo.svg', $html );
 		$this->assertStringContainsString( 'https://jetpack.com/forms/', $html );
 		$this->assertStringContainsString( 'https://jetpack.com/resources/wordpress-contact-form/', $html );

@@ -4,10 +4,7 @@ RAN Turnstile for Jetpack Forms adds Cloudflare Turnstile protection to Jetpack
 Forms.
 
 It exists to keep visitor verification separate from form delivery and
-newsletter subscriptions. The former RAN Octopus Forms plugin was split into two
-focused companions: RAN EmailOctopus for Jetpack Forms handles subscriber
-routing, while this plugin handles Turnstile verification. They can be used
-together or independently.
+newsletter subscriptions. The RAN Octopus Forms for Jetpack plugin can be used as a companion plugin to handle subscriber routing, while this plugin handles Turnstile verification.
 
 This plugin verifies the visitor before Jetpack accepts the submission. Jetpack
 remains responsible for the form, notifications, feedback storage, and its

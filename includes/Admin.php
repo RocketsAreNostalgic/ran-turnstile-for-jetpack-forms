@@ -44,7 +44,7 @@ final class Admin {
 	public static function add_page() {
 		add_options_page(
 			__( 'RAN Turnstile for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ),
-			__( 'RAN Turnstile', 'ran-turnstile-for-jetpack-forms' ),
+			__( 'RAN Turnstile for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ),
 			'manage_options',
 			self::PAGE_SLUG,
 			array( __CLASS__, 'render_page' )
@@ -70,7 +70,7 @@ final class Admin {
 			$links,
 			sprintf(
 				'<a href="%s">%s</a>',
-				esc_url( admin_url( 'options-general.php?page=' . self::PAGE_SLUG ) ),
+				esc_url( add_query_arg( 'tab', 'settings', admin_url( 'options-general.php?page=' . self::PAGE_SLUG ) ) ),
 				esc_html__( 'Settings', 'ran-turnstile-for-jetpack-forms' )
 			)
 		);
@@ -95,11 +95,11 @@ final class Admin {
 		<?php
 	}
 
-	/** Return the selected shell tab, defaulting invalid input to Settings. */
+	/** Return the selected shell tab, defaulting invalid input to Overview. */
 	private static function get_active_tab() {
-		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'settings'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only view selection.
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'overview'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only view selection.
 
-		return 'overview' === $tab ? 'overview' : 'settings';
+		return 'settings' === $tab ? 'settings' : 'overview';
 	}
 
 	/** Enqueue exact-screen styles and the conditional health-check widget. */
@@ -131,12 +131,13 @@ final class Admin {
 				<header class="ran-turnstile-overview__header">
 					<div class="ran-turnstile-overview__brands" aria-hidden="true">
 						<img class="ran-turnstile-overview__turnstile-logo" src="<?php echo esc_url( RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_URL . 'assets/cloudflare-turnstile-logo.svg' ); ?>" width="54" height="54" alt="" />
+						<span class="ran-turnstile-overview__brand-name"><?php esc_html_e( 'Cloudflare Turnstile', 'ran-turnstile-for-jetpack-forms' ); ?></span>
 						<span class="ran-turnstile-overview__plus">+</span>
 						<img class="ran-turnstile-overview__jetpack-logo" src="<?php echo esc_url( RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_URL . 'assets/jetpack-logo.svg' ); ?>" width="140" height="38" alt="" />
 					</div>
 					<h2 id="ran-turnstile-overview-title"><?php esc_html_e( 'Turnstile protection for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ); ?></h2>
 				</header>
-				<p><?php esc_html_e( 'RAN Turnstile for Jetpack Forms adds Cloudflare Turnstile verification to every Jetpack Form on this site while preserving Jetpack’s existing form and Akismet workflow.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
+				<p><?php esc_html_e( 'RAN Turnstile for Jetpack Forms adds Cloudflare Turnstile verification to every Jetpack Form on your site while preserving Jetpack’s existing form and Akismet workflow.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
 				<p><?php esc_html_e( 'The plugin renders a Turnstile challenge with each protected form and verifies its token before the Jetpack submission continues. Configuration is site-wide; use the Settings tab to add credentials, choose the widget presentation and run a health check.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
 			</section>
 
@@ -178,14 +179,24 @@ final class Admin {
 			return;
 		}
 
-		$settings         = Settings::get_all();
-		$has_saved_secret = '' !== (string) $settings['turnstile_secret_key'];
-		$health           = self::get_health_result();
-		$page_url         = admin_url( 'options-general.php?page=' . self::PAGE_SLUG );
-		$active_tab       = self::get_active_tab();
-		$ran_admin_shell  = array(
+		$settings          = Settings::get_all();
+		$has_saved_secret  = '' !== (string) $settings['turnstile_secret_key'];
+		$health            = self::get_health_result();
+		$page_url          = admin_url( 'options-general.php?page=' . self::PAGE_SLUG );
+		$active_tab        = self::get_active_tab();
+		$footer_headers    = get_file_data(
+			RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_FILE,
+			array(
+				'author'     => 'Author',
+				'author_uri' => 'Author URI',
+			),
+			'plugin'
+		);
+		$footer_author     = is_string( $footer_headers['author'] ?? null ) ? trim( $footer_headers['author'] ) : '';
+		$footer_author_url = is_string( $footer_headers['author_uri'] ?? null ) ? trim( $footer_headers['author_uri'] ) : '';
+		$ran_admin_shell   = array(
 			'name'             => __( 'RAN Turnstile for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ),
-			'strapline'        => __( 'Protect every Jetpack form on this site with Cloudflare Turnstile.', 'ran-turnstile-for-jetpack-forms' ),
+			'strapline'        => __( 'Protect your Jetpack forms with Cloudflare Turnstile.', 'ran-turnstile-for-jetpack-forms' ),
 			'logo'             => array(
 				'url'    => RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_URL . 'assets/ran-turnstile-mark.svg',
 				'width'  => 54,
@@ -194,14 +205,14 @@ final class Admin {
 			'navigation_label' => __( 'RAN Turnstile', 'ran-turnstile-for-jetpack-forms' ),
 			'navigation'       => array(
 				array(
-					'label'   => __( 'Settings', 'ran-turnstile-for-jetpack-forms' ),
+					'label'   => __( 'Overview', 'ran-turnstile-for-jetpack-forms' ),
 					'url'     => $page_url,
-					'current' => 'settings' === $active_tab,
+					'current' => 'overview' === $active_tab,
 				),
 				array(
-					'label'   => __( 'Overview', 'ran-turnstile-for-jetpack-forms' ),
-					'url'     => add_query_arg( 'tab', 'overview', $page_url ),
-					'current' => 'overview' === $active_tab,
+					'label'   => __( 'Settings', 'ran-turnstile-for-jetpack-forms' ),
+					'url'     => add_query_arg( 'tab', 'settings', $page_url ),
+					'current' => 'settings' === $active_tab,
 				),
 			),
 		);
@@ -276,6 +287,20 @@ final class Admin {
 				</div>
 			</div>
 			<?php endif; ?>
+			<hr>
+			<div class="ran-turnstile-footer">
+				<p>
+					<?php
+					/* translators: %s: current year. */
+					echo esc_html( sprintf( __( 'Copyright © %s', 'ran-turnstile-for-jetpack-forms' ), wp_date( 'Y' ) ) );
+					?>
+					<?php if ( '' !== $footer_author && '' !== $footer_author_url ) : ?>
+						<a href="<?php echo esc_url( $footer_author_url ); ?>"><?php echo esc_html( $footer_author ); ?></a>
+					<?php else : ?>
+						<?php echo esc_html( $footer_author ); ?>
+					<?php endif; ?>
+				</p>
+			</div>
 		</div>
 		<?php
 	}
