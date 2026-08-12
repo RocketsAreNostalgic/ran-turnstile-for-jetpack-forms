@@ -131,12 +131,13 @@ final class Admin {
 				<header class="ran-turnstile-overview__header">
 					<div class="ran-turnstile-overview__brands" aria-hidden="true">
 						<img class="ran-turnstile-overview__turnstile-logo" src="<?php echo esc_url( RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_URL . 'assets/cloudflare-turnstile-logo.svg' ); ?>" width="54" height="54" alt="" />
+						<span class="ran-turnstile-overview__brand-name"><?php esc_html_e( 'Cloudflare Turnstile', 'ran-turnstile-for-jetpack-forms' ); ?></span>
 						<span class="ran-turnstile-overview__plus">+</span>
 						<img class="ran-turnstile-overview__jetpack-logo" src="<?php echo esc_url( RAN_TURNSTILE_FOR_JETPACK_FORMS_PLUGIN_URL . 'assets/jetpack-logo.svg' ); ?>" width="140" height="38" alt="" />
 					</div>
 					<h2 id="ran-turnstile-overview-title"><?php esc_html_e( 'Turnstile protection for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ); ?></h2>
 				</header>
-				<p><?php esc_html_e( 'RAN Turnstile for Jetpack Forms adds Cloudflare Turnstile verification to every Jetpack Form on this site while preserving Jetpack’s existing form and Akismet workflow.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
+				<p><?php esc_html_e( 'RAN Turnstile for Jetpack Forms adds Cloudflare Turnstile verification to every Jetpack Form on your site while preserving Jetpack’s existing form and Akismet workflow.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
 				<p><?php esc_html_e( 'The plugin renders a Turnstile challenge with each protected form and verifies its token before the Jetpack submission continues. Configuration is site-wide; use the Settings tab to add credentials, choose the widget presentation and run a health check.', 'ran-turnstile-for-jetpack-forms' ); ?></p>
 			</section>
 

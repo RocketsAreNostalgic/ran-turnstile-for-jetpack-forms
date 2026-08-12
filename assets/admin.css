@@ -50,6 +50,13 @@
 	max-width: 100%;
 }
 
+.ran-turnstile-overview__brand-name {
+	color: #1d2327;
+	font-size: 28px;
+	font-weight: 600;
+	line-height: 1.2;
+}
+
 .ran-turnstile-overview__plus {
 	color: #646970;
 	font-size: 24px;

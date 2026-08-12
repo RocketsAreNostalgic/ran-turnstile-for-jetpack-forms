@@ -302,6 +302,7 @@ class RAN_Turnstile_For_Jetpack_Forms_Test extends WP_UnitTestCase {
 		$this->assertStringContainsString( '>Rockets Are Nostalgic</a>', $html );
 		$this->assertStringContainsString( 'Turnstile protection for Jetpack Forms', $html );
 		$this->assertStringContainsString( 'assets/cloudflare-turnstile-logo.svg', $html );
+		$this->assertStringContainsString( 'Cloudflare Turnstile', $html );
 		$this->assertStringContainsString( 'assets/jetpack-logo.svg', $html );
 		$this->assertStringContainsString( 'https://jetpack.com/forms/', $html );
 		$this->assertStringContainsString( 'https://jetpack.com/resources/wordpress-contact-form/', $html );
