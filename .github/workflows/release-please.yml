@@ -146,6 +146,9 @@ jobs:
   package-release:
     name: Manually rebuild an existing release
     if: github.event_name == 'workflow_dispatch'
+    # Temporary fallback matching Quality: setup-php 8.5 repeatedly stalled on
+    # blacksmith-2vcpu-ubuntu-2404 (Actions run 31581704112). Restore Blacksmith
+    # after the provider/upstream issue is resolved.
     runs-on: ubuntu-24.04
     permissions:
       contents: write

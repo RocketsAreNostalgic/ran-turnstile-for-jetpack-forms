@@ -17,6 +17,9 @@ permissions:
 jobs:
   quality:
     name: Quality and release artifact
+    # Temporary fallback: setup-php 8.5 repeatedly stalled while provisioning on
+    # blacksmith-2vcpu-ubuntu-2404 (Actions run 31581704112, attempts 1 and 2).
+    # Restore Blacksmith after the provider/upstream issue is resolved.
     runs-on: ubuntu-24.04
     outputs:
       artifact-name: ${{ steps.release.outputs.artifact-name }}
@@ -109,6 +112,7 @@ jobs:
   compatibility:
     name: PHP ${{ matrix.php }} / WordPress ${{ matrix.wordpress }} / Jetpack ${{ matrix.jetpack }}
     needs: quality
+    # Keep PHP-bearing jobs on the temporary hosted fallback documented above.
     runs-on: ubuntu-24.04
     services:
       mysql:
