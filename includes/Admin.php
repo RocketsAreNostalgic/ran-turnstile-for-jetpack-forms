@@ -44,7 +44,7 @@ final class Admin {
 	public static function add_page() {
 		add_options_page(
 			__( 'RAN Turnstile for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ),
-			__( 'RAN Turnstile', 'ran-turnstile-for-jetpack-forms' ),
+			__( 'RAN Turnstile for Jetpack Forms', 'ran-turnstile-for-jetpack-forms' ),
 			'manage_options',
 			self::PAGE_SLUG,
 			array( __CLASS__, 'render_page' )
