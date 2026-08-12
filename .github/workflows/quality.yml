@@ -215,6 +215,10 @@ jobs:
     name: Plugin Check
     needs: quality
     runs-on: blacksmith-2vcpu-ubuntu-2404
+    env:
+      PLUGIN_CHECK_CORE_REF: WordPress/WordPress#7.0.3
+      PLUGIN_CHECK_SLUG: ran-turnstile-for-jetpack-forms
+      PLUGIN_CHECK_WP_ENV_VERSION: 11.13.0
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -229,9 +233,90 @@ jobs:
       - name: Extract the tested archive
         run: mkdir plugin-check-build && unzip -q "dist/ran-turnstile-for-jetpack-forms-${{ needs.quality.outputs.version }}.zip" -d plugin-check-build
 
-      - uses: wordpress/plugin-check-action@98a1788320d0add90df2d8183934ecccbc4e05d2 # v1
+      # WordPress.org can advertise a release before its matching Git mirror
+      # tag exists. Pin both wp-env and Core so Plugin Check remains releasable
+      # during that propagation window.
+      - name: Check out the pinned Plugin Check result processor
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          build-dir: ./plugin-check-build/ran-turnstile-for-jetpack-forms
-          # Turnstile cannot function without Cloudflare's documented runtime
-          # script. Keep every other Plugin Check code active.
-          ignore-codes: PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent
+          repository: WordPress/plugin-check-action
+          ref: 98a1788320d0add90df2d8183934ecccbc4e05d2
+          path: .plugin-check-action
+          persist-credentials: false
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '24'
+
+      - name: Install the pinned wp-env runtime
+        run: |
+          npm --global --no-fund --no-audit install "@wordpress/env@${PLUGIN_CHECK_WP_ENV_VERSION}"
+          test "$(npm --global list @wordpress/env --depth=0 --json | jq -er '.dependencies["@wordpress/env"].version')" = "$PLUGIN_CHECK_WP_ENV_VERSION"
+
+      - name: Configure WordPress 7.0.3 for Plugin Check
+        env:
+          PLUGIN_DIR: ${{ github.workspace }}/plugin-check-build/ran-turnstile-for-jetpack-forms
+        run: |
+          jq -n \
+            --arg core "$PLUGIN_CHECK_CORE_REF" \
+            --arg path "$PLUGIN_DIR" \
+            --arg slug "$PLUGIN_CHECK_SLUG" \
+            '{core: $core, port: 8880, testsEnvironment: false, mappings: {("wp-content/plugins/" + $slug): $path}}' > .wp-env.json
+          test "$(jq -er '.core' .wp-env.json)" = "$PLUGIN_CHECK_CORE_REF"
+
+      - name: Start the pinned Plugin Check environment
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+              if wp-env start --update && wp-env run cli wp cli info; then
+                  exit 0
+              fi
+              if [[ "$attempt" == 3 ]]; then
+                  exit 1
+              fi
+              wp-env destroy --force || true
+          done
+
+      - name: Run Plugin Check
+        id: plugin-check
+        continue-on-error: true
+        env:
+          RESULTS_FILE: ${{ runner.temp }}/plugin-check-results.txt
+        run: |
+          set -euo pipefail
+          wp-env run cli wp plugin install plugin-check --activate
+          dependencies="$(wp-env run cli wp plugin get "$PLUGIN_CHECK_SLUG" --field=requires_plugins | tr ',' ' ')"
+          if [[ -n "$dependencies" ]]; then
+              # WordPress owns these dependency slugs; word splitting is intentional.
+              # shellcheck disable=SC2086
+              wp-env run cli wp plugin install --activate $dependencies
+          fi
+          wp-env run cli wp plugin activate "$PLUGIN_CHECK_SLUG"
+          wp-env run cli wp plugin check "$PLUGIN_CHECK_SLUG" \
+            --format=json \
+            --ignore-codes=PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent \
+            --require=./wp-content/plugins/plugin-check/cli.php > "$RESULTS_FILE"
+          cat "$RESULTS_FILE"
+
+      - name: Process Plugin Check results
+        if: always()
+        env:
+          INPUT_REPO_TOKEN: ${{ github.token }}
+          RESULTS_FILE: ${{ runner.temp }}/plugin-check-results.txt
+          STRICT: 'false'
+        run: |
+          node .plugin-check-action/dist/index.js "$RESULTS_FILE"
+          test '${{ steps.plugin-check.outcome }}' = success
+
+      - name: Upload Plugin Check results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: plugin-check-results
+          path: ${{ runner.temp }}/plugin-check-results.txt
+          if-no-files-found: ignore
+
+      - name: Destroy the pinned Plugin Check environment
+        if: always()
+        run: wp-env destroy --force
