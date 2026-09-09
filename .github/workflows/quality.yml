@@ -64,6 +64,8 @@ jobs:
           find . -path './vendor' -prune -o -type f -name '*.php' -exec php -l {} \;
           node --check assets/turnstile.js
           node --check scripts/make-pot.mjs
+          node --check .github/scripts/filter-plugin-check-results.mjs
+          node --test .github/scripts/filter-plugin-check-results.test.mjs
           node scripts/make-pot.mjs
           git diff --exit-code -- languages/ran-turnstile-for-jetpack-forms.pot
           grep -Fq 'tools: composer:v2, wp-cli' .github/workflows/quality.yml
@@ -278,11 +280,13 @@ jobs:
               wp-env destroy --force || true
           done
 
-      - name: Run Plugin Check
+      - name: Run Plugin Check and apply scoped Turnstile acceptance
         id: plugin-check
         continue-on-error: true
         env:
-          RESULTS_FILE: ${{ runner.temp }}/plugin-check-results.txt
+          RAW_RESULTS_FILE: ${{ runner.temp }}/plugin-check-results-raw.txt
+          FILTERED_RESULTS_FILE: ${{ runner.temp }}/plugin-check-results-filtered.txt
+          PLUGIN_SOURCE_ROOT: ${{ github.workspace }}/plugin-check-build/ran-turnstile-for-jetpack-forms
         run: |
           set -euo pipefail
           wp-env run cli wp plugin install plugin-check --activate
@@ -293,31 +297,42 @@ jobs:
               wp-env run cli wp plugin install --activate $dependencies
           fi
           wp-env run cli wp plugin activate "$PLUGIN_CHECK_SLUG"
-          # Cloudflare Turnstile necessarily loads its widget and validation resources remotely.
-          # Ignore only the corresponding offloading findings for this integration.
+
+          set +e
           wp-env run cli wp plugin check "$PLUGIN_CHECK_SLUG" \
             --format=json \
-            --ignore-codes=PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent,PluginCheck.CodeAnalysis.Offloading.OffloadedContent \
-            --require=./wp-content/plugins/plugin-check/cli.php > "$RESULTS_FILE"
-          cat "$RESULTS_FILE"
+            --require=./wp-content/plugins/plugin-check/cli.php > "$RAW_RESULTS_FILE"
+          plugin_check_status=$?
+          set -e
+
+          cat "$RAW_RESULTS_FILE"
+          if [[ "$plugin_check_status" -ne 0 && ! -s "$RAW_RESULTS_FILE" ]]; then
+              exit "$plugin_check_status"
+          fi
+
+          node .github/scripts/filter-plugin-check-results.mjs \
+            "$RAW_RESULTS_FILE" \
+            "$FILTERED_RESULTS_FILE" \
+            "$PLUGIN_SOURCE_ROOT"
+          cat "$FILTERED_RESULTS_FILE"
 
       - name: Process Plugin Check results
         if: always()
         env:
           INPUT_REPO_TOKEN: ${{ github.token }}
-          RESULTS_FILE: ${{ runner.temp }}/plugin-check-results.txt
+          RESULTS_FILE: ${{ runner.temp }}/plugin-check-results-filtered.txt
           STRICT: 'false'
-        run: |
-          node .plugin-check-action/dist/index.js "$RESULTS_FILE"
-          test '${{ steps.plugin-check.outcome }}' = success
+        run: node .plugin-check-action/dist/index.js "$RESULTS_FILE"
 
       - name: Upload Plugin Check results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: plugin-check-results
-          path: ${{ runner.temp }}/plugin-check-results.txt
-          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/plugin-check-results-raw.txt
+            ${{ runner.temp }}/plugin-check-results-filtered.txt
+          if-no-files-found: error
 
       - name: Destroy the pinned Plugin Check environment
         if: always()
