@@ -41,14 +41,18 @@ let currentFile = null;
 let acceptedCount = 0;
 
 function resolveSourcePath(file) {
-	const normalized = path.posix.normalize(file);
-	if (normalized.startsWith('../') || path.posix.isAbsolute(normalized)) {
+	const sourcePath = path.isAbsolute(file)
+		? path.resolve(file)
+		: path.resolve(root, file);
+
+	if (sourcePath !== root && !sourcePath.startsWith(`${root}${path.sep}`)) {
 		throw new Error(`Unsafe Plugin Check path: ${file}`);
 	}
 
-	const sourcePath = path.resolve(root, normalized);
-	if (sourcePath !== root && !sourcePath.startsWith(`${root}${path.sep}`)) {
-		throw new Error(`Plugin Check path escapes source root: ${file}`);
+	const relative = path.relative(root, sourcePath);
+	const normalized = relative.split(path.sep).join('/');
+	if (!normalized || normalized.startsWith('../') || path.posix.isAbsolute(normalized)) {
+		throw new Error(`Unsafe Plugin Check path: ${file}`);
 	}
 
 	return { normalized, sourcePath };
@@ -58,6 +62,10 @@ function sourceLineFor(file, lineNumber) {
 	const { sourcePath } = resolveSourcePath(file);
 	const sourceLines = fs.readFileSync(sourcePath, 'utf8').split(/\r?\n/);
 	return sourceLines[lineNumber - 1] ?? '';
+}
+
+function urlsFromSourceLine(sourceLine) {
+	return new Set(sourceLine.match(/https:\/\/[^\s'"`<>()]+/g) ?? []);
 }
 
 function isAcceptedFinding(file, finding) {
@@ -70,8 +78,8 @@ function isAcceptedFinding(file, finding) {
 		return false;
 	}
 
-	const sourceLine = sourceLineFor(file, finding.line);
-	return [...acceptedUrls].some((url) => sourceLine.includes(url));
+	const sourceUrls = urlsFromSourceLine(sourceLineFor(file, finding.line));
+	return [...acceptedUrls].some((url) => sourceUrls.has(url));
 }
 
 for (const line of lines) {
