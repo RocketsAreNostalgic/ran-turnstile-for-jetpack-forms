@@ -40,7 +40,7 @@ const output = [];
 let currentFile = null;
 let acceptedCount = 0;
 
-function sourceLineFor(file, lineNumber) {
+function resolveSourcePath(file) {
 	const normalized = path.posix.normalize(file);
 	if (normalized.startsWith('../') || path.posix.isAbsolute(normalized)) {
 		throw new Error(`Unsafe Plugin Check path: ${file}`);
@@ -51,6 +51,11 @@ function sourceLineFor(file, lineNumber) {
 		throw new Error(`Plugin Check path escapes source root: ${file}`);
 	}
 
+	return { normalized, sourcePath };
+}
+
+function sourceLineFor(file, lineNumber) {
+	const { sourcePath } = resolveSourcePath(file);
 	const sourceLines = fs.readFileSync(sourcePath, 'utf8').split(/\r?\n/);
 	return sourceLines[lineNumber - 1] ?? '';
 }
@@ -71,8 +76,10 @@ function isAcceptedFinding(file, finding) {
 
 for (const line of lines) {
 	if (line.startsWith('FILE: ')) {
-		currentFile = line.slice('FILE: '.length).trim();
-		output.push(line);
+		const reportedFile = line.slice('FILE: '.length).trim();
+		const { normalized } = resolveSourcePath(reportedFile);
+		currentFile = normalized;
+		output.push(`FILE: ${normalized}`);
 		continue;
 	}
 
