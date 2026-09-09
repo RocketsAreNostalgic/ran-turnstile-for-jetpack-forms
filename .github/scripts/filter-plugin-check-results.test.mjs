@@ -58,7 +58,7 @@ function expectedFixture() {
 	];
 }
 
-function runFilter({ sections = expectedFixture(), absoluteFiles = false, setup }) {
+function runFilter({ sections = expectedFixture(), absoluteFiles = false, setup, stdout = false }) {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ran-plugin-check-'));
 	const input = path.join(root, 'raw.txt');
 	const output = path.join(root, 'filtered.txt');
@@ -77,13 +77,13 @@ function runFilter({ sections = expectedFixture(), absoluteFiles = false, setup 
 	setup?.({ root, records });
 	fs.writeFileSync(input, `${records.join('\n')}\n`);
 
-	const result = spawnSync(process.execPath, [scriptPath, input, output, root], {
+	const result = spawnSync(process.execPath, [scriptPath, input, stdout ? '-' : output, root], {
 		encoding: 'utf8',
 	});
 
 	return {
 		...result,
-		output: fs.existsSync(output) ? fs.readFileSync(output, 'utf8') : '',
+		output: stdout ? result.stdout : (fs.existsSync(output) ? fs.readFileSync(output, 'utf8') : ''),
 	};
 }
 
@@ -103,15 +103,26 @@ test('accepts each of the six expected findings exactly once', () => {
 	);
 });
 
-test('keeps an allowlisted URL plus an evil URL as an error and fails', () => {
-	const sections = expectedFixture();
-	sections[0].sourceLines[0] += " 'https://evil.example/tracker.js'";
-	const result = runFilter({ sections });
-
-	assertGateFailsWithEvidence(result);
-	assert.match(result.output, /"type":"ERROR"/);
-	assert.match(result.stderr, /Filtered Plugin Check results still contain ERROR/);
+test('writes only filtered evidence to stdout', () => {
+	const result = runFilter({ stdout: true });
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(result.output, runFilter({}).output);
+	assert.match(result.stderr, /Accepted 6 expected/);
+	assert.doesNotMatch(result.output, /Accepted 6 expected/);
 });
+
+for (const url of ['https://evil.example/tracker.js', 'http://evil.example/tracker.js', '//evil.example/tracker.js']) {
+	test(`keeps both findings on a mixed URL line as errors: ${url}`, () => {
+		const sections = expectedFixture();
+		sections[0].sourceLines[1] += ` '${url}'`;
+		sections[0].findings.push(finding(enqueuedCode, { line: 2, column: 100 }));
+		const result = runFilter({ sections });
+
+		assertGateFailsWithEvidence(result);
+		assert.equal(result.output.match(/"type":"ERROR"/g)?.length, 2);
+		assert.match(result.stderr, /Filtered Plugin Check results still contain ERROR/);
+	});
+}
 
 test('keeps an extra unapproved offloading finding as an error and fails', () => {
 	const sections = expectedFixture();
@@ -143,6 +154,17 @@ test('fails when an expected accepted finding is missing', () => {
 
 	assertGateFailsWithEvidence(result);
 	assert.match(result.stderr, /found 0/);
+});
+
+test('fails with stdout evidence when all expected findings disappear', () => {
+	const sections = expectedFixture();
+	for (const section of sections) {
+		section.findings = [];
+	}
+	const result = runFilter({ sections, stdout: true });
+	assertGateFailsWithEvidence(result);
+	assert.equal(result.stderr.match(/found 0/g)?.length, 6);
+	assert.doesNotMatch(result.output, /"type":"WARNING"/);
 });
 
 test('fails when an expected accepted finding is duplicated', () => {

@@ -278,6 +278,7 @@ jobs:
           done
 
       - name: Run Plugin Check and enforce scoped Turnstile acceptance
+        timeout-minutes: 10
         env:
           RAW_RESULTS_FILE: ${{ runner.temp }}/plugin-check-results-raw.txt
           FILTERED_RESULTS_FILE: ${{ runner.temp }}/plugin-check-results-filtered.txt
@@ -305,11 +306,21 @@ jobs:
               exit "$plugin_check_status"
           fi
 
-          node .github/scripts/filter-plugin-check-results.mjs \
-            "$RAW_RESULTS_FILE" \
-            "$FILTERED_RESULTS_FILE" \
-            "$PLUGIN_SOURCE_ROOT"
-          cat "$FILTERED_RESULTS_FILE"
+          # PR code gets only read-only inputs, no host workspace, credentials,
+          # network, or Docker socket. Only stdout becomes the filtered artifact.
+          log_token="$(openssl rand -hex 32)"
+          printf '::stop-commands::%s\n' "$log_token"
+          filter_status=0
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 64 --memory 256m --cpus 1 \
+            --user "$(id -u):$(id -g)" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/.github/scripts/filter-plugin-check-results.mjs,dst=/filter.mjs,readonly" \
+            --mount "type=bind,src=$RAW_RESULTS_FILE,dst=/raw.txt,readonly" \
+            --mount "type=bind,src=$PLUGIN_SOURCE_ROOT,dst=/source,readonly" \
+            node:24-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e \
+            node /filter.mjs /raw.txt - /source > "$FILTERED_RESULTS_FILE" || filter_status=$?
+          printf '::%s::\n' "$log_token"
+          exit "$filter_status"
 
       - name: Upload Plugin Check results
         if: always()

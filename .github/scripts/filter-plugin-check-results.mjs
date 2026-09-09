@@ -5,7 +5,7 @@ const [inputPath, outputPath, sourceRoot] = process.argv.slice(2);
 
 if (!inputPath || !outputPath || !sourceRoot) {
 	throw new Error(
-		'Usage: node filter-plugin-check-results.mjs <input> <output> <source-root>'
+		'Usage: node filter-plugin-check-results.mjs <input> <output|-> <source-root>'
 	);
 }
 
@@ -95,7 +95,7 @@ function sourceLineFor(file, lineNumber) {
 }
 
 function urlsFromSourceLine(sourceLine) {
-	return sourceLine.match(/https:\/\/[^\s'"`<>]+/g) ?? [];
+	return sourceLine.match(/(?:[a-z][a-z\d+.-]*:)?\/\/[^\s'"`<>]+/gi) ?? [];
 }
 
 function acceptedTupleKey(file, finding) {
@@ -186,7 +186,7 @@ if (currentFile) {
 	throw new Error(`Missing Plugin Check findings for ${currentFile}`);
 }
 
-fs.writeFileSync(outputPath, output.join('\n'));
+fs.writeFileSync(outputPath === '-' ? 1 : outputPath, output.join('\n'));
 
 const contractErrors = expectedAcceptedFindings.flatMap((finding) => {
 	const count = expectedCounts.get(tupleKey(finding));
@@ -203,6 +203,6 @@ if (contractErrors.length > 0) {
 	throw new Error(`Plugin Check acceptance contract failed:\n${contractErrors.join('\n')}`);
 }
 
-console.log(
+console.error(
 	`Accepted ${expectedAcceptedFindings.length} expected Cloudflare Turnstile findings.`
 );
