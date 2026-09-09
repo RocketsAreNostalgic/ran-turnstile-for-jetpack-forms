@@ -293,9 +293,11 @@ jobs:
               wp-env run cli wp plugin install --activate $dependencies
           fi
           wp-env run cli wp plugin activate "$PLUGIN_CHECK_SLUG"
+          # Cloudflare Turnstile necessarily loads its widget and validation resources remotely.
+          # Ignore only the corresponding offloading findings for this integration.
           wp-env run cli wp plugin check "$PLUGIN_CHECK_SLUG" \
             --format=json \
-            --ignore-codes=PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent \
+            --ignore-codes=PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent,PluginCheck.CodeAnalysis.Offloading.OffloadedContent \
             --require=./wp-content/plugins/plugin-check/cli.php > "$RESULTS_FILE"
           cat "$RESULTS_FILE"
 
