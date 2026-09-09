@@ -334,4 +334,4 @@ jobs:
 
       - name: Destroy the pinned Plugin Check environment
         if: always()
-        run: wp-env destroy --force || true
+        run: wp-env destroy --force
