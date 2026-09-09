@@ -222,6 +222,11 @@ jobs:
       PLUGIN_CHECK_SLUG: ran-turnstile-for-jetpack-forms
       PLUGIN_CHECK_WP_ENV_VERSION: 11.13.0
     steps:
+      - name: Initialize Plugin Check evidence files
+        run: |
+          : > "${{ runner.temp }}/plugin-check-results-raw.txt"
+          : > "${{ runner.temp }}/plugin-check-results-filtered.txt"
+
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
@@ -238,14 +243,6 @@ jobs:
       # WordPress.org can advertise a release before its matching Git mirror
       # tag exists. Pin both wp-env and Core so Plugin Check remains releasable
       # during that propagation window.
-      - name: Check out the pinned Plugin Check result processor
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: WordPress/plugin-check-action
-          ref: 98a1788320d0add90df2d8183934ecccbc4e05d2
-          path: .plugin-check-action
-          persist-credentials: false
-
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '24'
@@ -280,9 +277,7 @@ jobs:
               wp-env destroy --force || true
           done
 
-      - name: Run Plugin Check and apply scoped Turnstile acceptance
-        id: plugin-check
-        continue-on-error: true
+      - name: Run Plugin Check and enforce scoped Turnstile acceptance
         env:
           RAW_RESULTS_FILE: ${{ runner.temp }}/plugin-check-results-raw.txt
           FILTERED_RESULTS_FILE: ${{ runner.temp }}/plugin-check-results-filtered.txt
@@ -316,14 +311,6 @@ jobs:
             "$PLUGIN_SOURCE_ROOT"
           cat "$FILTERED_RESULTS_FILE"
 
-      - name: Process Plugin Check results
-        if: always()
-        env:
-          INPUT_REPO_TOKEN: ${{ github.token }}
-          RESULTS_FILE: ${{ runner.temp }}/plugin-check-results-filtered.txt
-          STRICT: 'false'
-        run: node .plugin-check-action/dist/index.js "$RESULTS_FILE"
-
       - name: Upload Plugin Check results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -336,4 +323,4 @@ jobs:
 
       - name: Destroy the pinned Plugin Check environment
         if: always()
-        run: wp-env destroy --force
+        run: wp-env destroy --force || true

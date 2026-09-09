@@ -9,43 +9,73 @@ if (!inputPath || !outputPath || !sourceRoot) {
 	);
 }
 
-const acceptedCodes = new Set([
-	'PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent',
-	'PluginCheck.CodeAnalysis.Offloading.OffloadedContent',
-]);
+const expectedAcceptedFindings = [
+	{
+		file: 'includes/Turnstile.php',
+		code: 'PluginCheck.CodeAnalysis.Offloading.OffloadedContent',
+		url: 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+	},
+	{
+		file: 'includes/Turnstile.php',
+		code: 'PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent',
+		url: 'https://challenges.cloudflare.com/turnstile/v0/api.js',
+	},
+	{
+		file: 'includes/Admin.php',
+		code: 'PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent',
+		url: 'https://challenges.cloudflare.com/turnstile/v0/api.js',
+	},
+	{
+		file: 'includes/Admin.php',
+		code: 'PluginCheck.CodeAnalysis.Offloading.OffloadedContent',
+		url: 'https://developers.cloudflare.com/turnstile/',
+	},
+	{
+		file: 'includes/Admin.php',
+		code: 'PluginCheck.CodeAnalysis.Offloading.OffloadedContent',
+		url: 'https://developers.cloudflare.com/turnstile/get-started/server-side-validation/',
+	},
+	{
+		file: 'includes/Admin.php',
+		code: 'PluginCheck.CodeAnalysis.Offloading.OffloadedContent',
+		url: 'https://developers.cloudflare.com/turnstile/troubleshooting/testing/',
+	},
+];
 
-const acceptedUrlsByFile = new Map([
-	[
-		'includes/Turnstile.php',
-		new Set([
-			'https://challenges.cloudflare.com/turnstile/v0/api.js',
-			'https://challenges.cloudflare.com/turnstile/v0/siteverify',
-		]),
-	],
-	[
-		'includes/Admin.php',
-		new Set([
-			'https://challenges.cloudflare.com/turnstile/v0/api.js',
-			'https://developers.cloudflare.com/turnstile/',
-			'https://developers.cloudflare.com/turnstile/get-started/server-side-validation/',
-			'https://developers.cloudflare.com/turnstile/troubleshooting/testing/',
-		]),
-	],
-]);
+function tupleKey({ file, code, url }) {
+	return JSON.stringify([file, code, url]);
+}
 
-const root = path.resolve(sourceRoot);
+const expectedCounts = new Map(
+	expectedAcceptedFindings.map((finding) => [tupleKey(finding), 0])
+);
+const requestedRoot = path.resolve(sourceRoot);
+const root = fs.realpathSync(requestedRoot);
 const raw = fs.readFileSync(inputPath, 'utf8');
 const lines = raw.split(/\r?\n/);
 const output = [];
 let currentFile = null;
-let acceptedCount = 0;
+let hasFilteredErrors = false;
+
+function isWithinRoot(file, candidateRoot) {
+	return file === candidateRoot || file.startsWith(`${candidateRoot}${path.sep}`);
+}
 
 function resolveSourcePath(file) {
-	const sourcePath = path.isAbsolute(file)
-		? path.resolve(file)
-		: path.resolve(root, file);
+	if (file.split(/[\\/]/).includes('..')) {
+		throw new Error(`Unsafe Plugin Check path: ${file}`);
+	}
 
-	if (sourcePath !== root && !sourcePath.startsWith(`${root}${path.sep}`)) {
+	const requestedPath = path.isAbsolute(file)
+		? path.resolve(file)
+		: path.resolve(requestedRoot, file);
+
+	if (!isWithinRoot(requestedPath, requestedRoot)) {
+		throw new Error(`Unsafe Plugin Check path: ${file}`);
+	}
+
+	const sourcePath = fs.realpathSync(requestedPath);
+	if (!isWithinRoot(sourcePath, root)) {
 		throw new Error(`Unsafe Plugin Check path: ${file}`);
 	}
 
@@ -65,25 +95,34 @@ function sourceLineFor(file, lineNumber) {
 }
 
 function urlsFromSourceLine(sourceLine) {
-	return new Set(sourceLine.match(/https:\/\/[^\s'"`<>()]+/g) ?? []);
+	return sourceLine.match(/https:\/\/[^\s'"`<>]+/g) ?? [];
 }
 
-function isAcceptedFinding(file, finding) {
-	if (!acceptedCodes.has(finding.code) || !Number.isInteger(finding.line) || finding.line < 1) {
-		return false;
-	}
-
-	const acceptedUrls = acceptedUrlsByFile.get(file);
-	if (!acceptedUrls) {
-		return false;
+function acceptedTupleKey(file, finding) {
+	if (
+		!finding ||
+		typeof finding !== 'object' ||
+		!Number.isInteger(finding.line) ||
+		finding.line < 1
+	) {
+		return null;
 	}
 
 	const sourceUrls = urlsFromSourceLine(sourceLineFor(file, finding.line));
-	return [...acceptedUrls].some((url) => sourceUrls.has(url));
+	if (sourceUrls.length !== 1) {
+		return null;
+	}
+
+	const key = tupleKey({ file, code: finding.code, url: sourceUrls[0] });
+	return expectedCounts.has(key) ? key : null;
 }
 
 for (const line of lines) {
 	if (line.startsWith('FILE: ')) {
+		if (currentFile) {
+			throw new Error(`Missing Plugin Check findings for ${currentFile}`);
+		}
+
 		const reportedFile = line.slice('FILE: '.length).trim();
 		const { normalized } = resolveSourcePath(reportedFile);
 		currentFile = normalized;
@@ -103,12 +142,26 @@ for (const line of lines) {
 			throw new Error(`Expected Plugin Check array for ${currentFile}`);
 		}
 
+		for (const finding of findings) {
+			if (
+				!finding ||
+				typeof finding !== 'object' ||
+				!Number.isInteger(finding.line) ||
+				finding.line < 1 ||
+				typeof finding.code !== 'string' ||
+				!['ERROR', 'WARNING'].includes(finding.type)
+			) {
+				throw new Error(`Invalid Plugin Check finding for ${currentFile}`);
+			}
+		}
+
 		const adjusted = findings.map((finding) => {
-			if (!isAcceptedFinding(currentFile, finding)) {
+			const key = acceptedTupleKey(currentFile, finding);
+			if (!key) {
 				return finding;
 			}
 
-			acceptedCount += 1;
+			expectedCounts.set(key, expectedCounts.get(key) + 1);
 			return {
 				...finding,
 				type: 'WARNING',
@@ -116,13 +169,40 @@ for (const line of lines) {
 			};
 		});
 
+		hasFilteredErrors ||= adjusted.some((finding) => finding?.type === 'ERROR');
 		output.push(JSON.stringify(adjusted));
 		currentFile = null;
 		continue;
 	}
 
+	if (line.trimStart().startsWith('[')) {
+		throw new Error('Plugin Check findings appeared without a FILE header');
+	}
+
 	output.push(line);
 }
 
+if (currentFile) {
+	throw new Error(`Missing Plugin Check findings for ${currentFile}`);
+}
+
 fs.writeFileSync(outputPath, output.join('\n'));
-console.log(`Accepted ${acceptedCount} allowlisted Cloudflare Turnstile finding(s).`);
+
+const contractErrors = expectedAcceptedFindings.flatMap((finding) => {
+	const count = expectedCounts.get(tupleKey(finding));
+	return count === 1
+		? []
+		: [`Expected accepted finding exactly once but found ${count}: ${tupleKey(finding)}`];
+});
+
+if (hasFilteredErrors) {
+	contractErrors.push('Filtered Plugin Check results still contain ERROR findings.');
+}
+
+if (contractErrors.length > 0) {
+	throw new Error(`Plugin Check acceptance contract failed:\n${contractErrors.join('\n')}`);
+}
+
+console.log(
+	`Accepted ${expectedAcceptedFindings.length} expected Cloudflare Turnstile findings.`
+);
