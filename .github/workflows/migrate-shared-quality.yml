@@ -9,34 +9,40 @@ permissions:
   contents: write
 
 jobs:
-  migrate:
-    if: github.actor != 'github-actions[bot]'
+  materialize:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out feature branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fetch-depth: 0
-          ref: chore/adopt-shared-quality-profile
+          persist-credentials: false
 
-      - name: Set up PHP
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: '8.5'
           coverage: none
           tools: composer:v2
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
         with:
           version: 11.13.1
 
-      - name: Set up Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .node-version
 
-      - name: Add shared baseline and terminal fan-in
+      - name: Prove materialized locks and Node contract
+        run: |
+          composer install --no-interaction --prefer-dist --no-progress
+          pnpm install --frozen-lockfile
+          pnpm peers check
+          composer check
+          pnpm check
+          node --check assets/turnstile.js
+          node --check scripts/make-pot.mjs
+          node --check .github/scripts/filter-plugin-check-results.mjs
+          node --test .github/scripts/filter-plugin-check-results.test.mjs
+
+      - name: Construct permanent quality workflow exactly
         shell: python
         run: |
           from pathlib import Path
@@ -56,57 +62,7 @@ jobs:
           terminal = f'''\n\n  quality-gate:\n    if: always() && github.event_name == 'pull_request'\n    name: quality\n    needs:\n      - baseline\n      - quality\n      - compatibility\n      - plugin-check\n    runs-on: ubuntu-latest\n    steps:\n      - name: Require all ordinary quality lanes\n        run: |\n          test '{dollar}{{{{ needs.baseline.result }}}}' = success\n          test '{dollar}{{{{ needs.quality.result }}}}' = success\n          test '{dollar}{{{{ needs.compatibility.result }}}}' = success\n          test '{dollar}{{{{ needs.plugin-check.result }}}}' = success\n'''
           path.write_text(text.rstrip() + terminal)
 
-      - name: Refresh only shared quality dependency locks
-        run: |
-          composer update \
-            ran/coding-standards \
-            phpcompatibility/php-compatibility \
-            phpcompatibility/phpcompatibility-paragonie \
-            phpcompatibility/phpcompatibility-wp \
-            --with-dependencies \
-            --no-interaction \
-            --prefer-dist \
-            --no-progress
-          pnpm install --lockfile-only
-
-      - name: Normalize bounded JavaScript surface
-        shell: python
-        run: |
-          from pathlib import Path
-
-          path = Path('.github/scripts/filter-plugin-check-results.test.mjs')
-          text = path.read_text()
-          old = """\treturn {\n\t\t...result,\n\t\toutput: stdout ? result.stdout : (fs.existsSync(output) ? fs.readFileSync(output, 'utf8') : ''),\n\t};"""
-          new = """\tlet outputText = '';\n\tif (stdout) {\n\t\toutputText = result.stdout;\n\t} else if (fs.existsSync(output)) {\n\t\toutputText = fs.readFileSync(output, 'utf8');\n\t}\n\n\treturn {\n\t\t...result,\n\t\toutput: outputText,\n\t};"""
-          if text.count(old) != 1:
-              raise SystemExit('expected nested ternary test block changed unexpectedly')
-          path.write_text(text.replace(old, new, 1))
-
-      - name: Apply shared formatter to exact Node quality surface
-        run: |
-          pnpm exec prettier --write \
-            assets/turnstile.js \
-            .github/scripts/filter-plugin-check-results.mjs \
-            .github/scripts/filter-plugin-check-results.test.mjs \
-            eslint.config.mjs \
-            prettier.config.cjs \
-            package.json \
-            pnpm-workspace.yaml
-
-      - name: Prove generated locks and Node contract exactly
-        run: |
-          rm -rf vendor node_modules
-          composer install --no-interaction --prefer-dist --no-progress
-          pnpm install --frozen-lockfile
-          pnpm peers check
-          composer check
-          pnpm check
-          node --check assets/turnstile.js
-          node --check scripts/make-pot.mjs
-          node --check .github/scripts/filter-plugin-check-results.mjs
-          node --test .github/scripts/filter-plugin-check-results.test.mjs
-
-      - name: Materialize proven permanent workflow blob
+      - name: Materialize permanent workflow blob
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -120,10 +76,8 @@ jobs:
           test -n "$quality_blob"
           printf 'PERMANENT_QUALITY_BLOB=%s\n' "$quality_blob"
 
-      - name: Confirm proven branch artifacts are already materialized
-        shell: bash
+      - name: Confirm branch remains clean
         run: |
-          set -euo pipefail
-          rm -rf node_modules
+          rm -rf node_modules vendor
           git restore .github/workflows/quality.yml
           test -z "$(git status --short)"
