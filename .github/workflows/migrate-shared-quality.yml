@@ -69,12 +69,14 @@ jobs:
             --no-progress
           pnpm install --lockfile-only
 
-      - name: Prove generated locks install exactly
+      - name: Prove generated locks and Node contract exactly
         run: |
           rm -rf vendor node_modules
           composer install --no-interaction --prefer-dist --no-progress
           pnpm install --frozen-lockfile
+          pnpm peers check
           composer check
+          pnpm check
 
       - name: Commit only workflow and generated locks
         shell: bash
