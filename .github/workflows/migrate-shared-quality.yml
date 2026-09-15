@@ -1,23 +1,23 @@
 name: Migrate shared quality profile
 
 on:
-  pull_request:
+  push:
+    branches:
+      - chore/adopt-shared-quality-profile
 
 permissions:
   contents: write
 
 jobs:
   migrate:
-    if: >-
-      github.event.pull_request.head.repo.full_name == github.repository
-      && github.event.pull_request.head.ref == 'chore/adopt-shared-quality-profile'
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Check out feature branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: chore/adopt-shared-quality-profile
 
       - name: Set up PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
@@ -51,8 +51,10 @@ jobs:
 
           baseline = '''jobs:\n  baseline:\n    if: github.event_name == 'pull_request'\n    uses: RocketsAreNostalgic/.github/.github/workflows/quality-wordpress-plugin.yml@72a90b5826db37d1e94cdcdcf3374ccf58c0aa7d\n    with:\n      php-version: '8.5'\n      node-version-file: .node-version\n      pnpm-version: '11.13.1'\n\n'''
           text = text.replace(marker, baseline, 1)
-          text = text.rstrip() + '''\n\n  quality-gate:\n    if: ${{ always() && github.event_name == 'pull_request' }}\n    name: quality\n    needs:\n      - baseline\n      - quality\n      - compatibility\n      - plugin-check\n    runs-on: ubuntu-latest\n    steps:\n      - name: Require all ordinary quality lanes\n        run: |\n          test '${{ needs.baseline.result }}' = success\n          test '${{ needs.quality.result }}' = success\n          test '${{ needs.compatibility.result }}' = success\n          test '${{ needs.plugin-check.result }}' = success\n'''
-          path.write_text(text)
+
+          dollar = '$'
+          terminal = f'''\n\n  quality-gate:\n    if: always() && github.event_name == 'pull_request'\n    name: quality\n    needs:\n      - baseline\n      - quality\n      - compatibility\n      - plugin-check\n    runs-on: ubuntu-latest\n    steps:\n      - name: Require all ordinary quality lanes\n        run: |\n          test '{dollar}{{{{ needs.baseline.result }}}}' = success\n          test '{dollar}{{{{ needs.quality.result }}}}' = success\n          test '{dollar}{{{{ needs.compatibility.result }}}}' = success\n          test '{dollar}{{{{ needs.plugin-check.result }}}}' = success\n'''
+          path.write_text(text.rstrip() + terminal)
 
       - name: Refresh only shared quality dependency locks
         run: |
@@ -91,4 +93,4 @@ jobs:
           git add .github/workflows/quality.yml composer.lock pnpm-lock.yaml
           git diff --cached --quiet && exit 0
           git commit -m 'chore: finish shared quality migration'
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          git push origin HEAD:chore/adopt-shared-quality-profile
