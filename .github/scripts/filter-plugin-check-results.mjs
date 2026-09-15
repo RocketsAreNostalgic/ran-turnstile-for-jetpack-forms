@@ -58,7 +58,9 @@ let currentFile = null;
 let hasFilteredErrors = false;
 
 function isWithinRoot(file, candidateRoot) {
-	return file === candidateRoot || file.startsWith(`${candidateRoot}${path.sep}`);
+	return (
+		file === candidateRoot || file.startsWith(`${candidateRoot}${path.sep}`)
+	);
 }
 
 function resolveSourcePath(file) {
@@ -81,7 +83,11 @@ function resolveSourcePath(file) {
 
 	const relative = path.relative(root, sourcePath);
 	const normalized = relative.split(path.sep).join('/');
-	if (!normalized || normalized.startsWith('../') || path.posix.isAbsolute(normalized)) {
+	if (
+		!normalized ||
+		normalized.startsWith('../') ||
+		path.posix.isAbsolute(normalized)
+	) {
 		throw new Error(`Unsafe Plugin Check path: ${file}`);
 	}
 
@@ -135,7 +141,9 @@ for (const line of lines) {
 		try {
 			findings = JSON.parse(line);
 		} catch (error) {
-			throw new Error(`Invalid Plugin Check JSON for ${currentFile}: ${error.message}`);
+			throw new Error(
+				`Invalid Plugin Check JSON for ${currentFile}: ${error.message}`
+			);
 		}
 
 		if (!Array.isArray(findings)) {
@@ -151,7 +159,9 @@ for (const line of lines) {
 				typeof finding.code !== 'string' ||
 				!['ERROR', 'WARNING'].includes(finding.type)
 			) {
-				throw new Error(`Invalid Plugin Check finding for ${currentFile}`);
+				throw new Error(
+					`Invalid Plugin Check finding for ${currentFile}`
+				);
 			}
 		}
 
@@ -169,7 +179,9 @@ for (const line of lines) {
 			};
 		});
 
-		hasFilteredErrors ||= adjusted.some((finding) => finding?.type === 'ERROR');
+		hasFilteredErrors ||= adjusted.some(
+			(finding) => finding?.type === 'ERROR'
+		);
 		output.push(JSON.stringify(adjusted));
 		currentFile = null;
 		continue;
@@ -192,15 +204,21 @@ const contractErrors = expectedAcceptedFindings.flatMap((finding) => {
 	const count = expectedCounts.get(tupleKey(finding));
 	return count === 1
 		? []
-		: [`Expected accepted finding exactly once but found ${count}: ${tupleKey(finding)}`];
+		: [
+				`Expected accepted finding exactly once but found ${count}: ${tupleKey(finding)}`,
+			];
 });
 
 if (hasFilteredErrors) {
-	contractErrors.push('Filtered Plugin Check results still contain ERROR findings.');
+	contractErrors.push(
+		'Filtered Plugin Check results still contain ERROR findings.'
+	);
 }
 
 if (contractErrors.length > 0) {
-	throw new Error(`Plugin Check acceptance contract failed:\n${contractErrors.join('\n')}`);
+	throw new Error(
+		`Plugin Check acceptance contract failed:\n${contractErrors.join('\n')}`
+	);
 }
 
 console.error(

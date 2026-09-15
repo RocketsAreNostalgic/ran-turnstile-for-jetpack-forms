@@ -1,6 +1,6 @@
 packages:
-  - .
+    - .
 
 allowBuilds:
-  core-js: false
-  unrs-resolver: true
+    core-js: false
+    unrs-resolver: true
