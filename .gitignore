@@ -1,4 +1,5 @@
 /vendor/
+/node_modules/
 /dist/
 /.dex/
 /.phpunit.result.cache
