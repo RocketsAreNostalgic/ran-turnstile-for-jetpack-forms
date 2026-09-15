@@ -106,38 +106,24 @@ jobs:
           node --check .github/scripts/filter-plugin-check-results.mjs
           node --test .github/scripts/filter-plugin-check-results.test.mjs
 
-      - name: Commit proven non-workflow migration files
+      - name: Materialize proven permanent workflow blob
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          quality_blob="$(gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/git/blobs" \
+            -F content=@.github/workflows/quality.yml \
+            -f encoding=utf-8 \
+            --jq '.sha')"
+          test -n "$quality_blob"
+          printf 'PERMANENT_QUALITY_BLOB=%s\n' "$quality_blob"
+
+      - name: Confirm proven branch artifacts are already materialized
         shell: bash
         run: |
           set -euo pipefail
           rm -rf node_modules
-          changed="$(git status --short)"
-          printf '%s\n' "$changed"
-          while IFS= read -r line; do
-            [[ -z "$line" \
-              || "$line" == ' M .github/workflows/quality.yml' \
-              || "$line" == ' M .github/scripts/filter-plugin-check-results.mjs' \
-              || "$line" == ' M .github/scripts/filter-plugin-check-results.test.mjs' \
-              || "$line" == ' M assets/turnstile.js' \
-              || "$line" == ' M composer.lock' \
-              || "$line" == ' M eslint.config.mjs' \
-              || "$line" == ' M package.json' \
-              || "$line" == ' M pnpm-workspace.yaml' \
-              || "$line" == ' M prettier.config.cjs' \
-              || "$line" == '?? pnpm-lock.yaml' ]]
-          done <<< "$changed"
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            .github/scripts/filter-plugin-check-results.mjs \
-            .github/scripts/filter-plugin-check-results.test.mjs \
-            assets/turnstile.js \
-            composer.lock \
-            eslint.config.mjs \
-            package.json \
-            pnpm-lock.yaml \
-            pnpm-workspace.yaml \
-            prettier.config.cjs
-          git diff --cached --quiet && exit 0
-          git commit -m 'chore: materialize shared quality artifacts'
-          git push origin HEAD:chore/adopt-shared-quality-profile
+          git restore .github/workflows/quality.yml
+          test -z "$(git status --short)"
