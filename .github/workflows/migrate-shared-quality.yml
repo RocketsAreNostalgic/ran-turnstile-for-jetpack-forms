@@ -82,12 +82,16 @@ jobs:
               raise SystemExit('expected nested ternary test block changed unexpectedly')
           path.write_text(text.replace(old, new, 1))
 
-      - name: Apply shared formatter to exact JavaScript surface
+      - name: Apply shared formatter to exact Node quality surface
         run: |
           pnpm exec prettier --write \
             assets/turnstile.js \
             .github/scripts/filter-plugin-check-results.mjs \
-            .github/scripts/filter-plugin-check-results.test.mjs
+            .github/scripts/filter-plugin-check-results.test.mjs \
+            eslint.config.mjs \
+            prettier.config.cjs \
+            package.json \
+            pnpm-workspace.yaml
 
       - name: Prove generated locks and Node contract exactly
         run: |
@@ -115,6 +119,10 @@ jobs:
               || "$line" == ' M .github/scripts/filter-plugin-check-results.test.mjs' \
               || "$line" == ' M assets/turnstile.js' \
               || "$line" == ' M composer.lock' \
+              || "$line" == ' M eslint.config.mjs' \
+              || "$line" == ' M package.json' \
+              || "$line" == ' M pnpm-workspace.yaml' \
+              || "$line" == ' M prettier.config.cjs' \
               || "$line" == '?? pnpm-lock.yaml' ]]
           done <<< "$changed"
           git config user.name 'github-actions[bot]'
@@ -125,7 +133,11 @@ jobs:
             .github/scripts/filter-plugin-check-results.test.mjs \
             assets/turnstile.js \
             composer.lock \
-            pnpm-lock.yaml
+            eslint.config.mjs \
+            package.json \
+            pnpm-lock.yaml \
+            pnpm-workspace.yaml \
+            prettier.config.cjs
           git diff --cached --quiet && exit 0
           git commit -m 'chore: finish shared quality migration'
           git push origin HEAD:chore/adopt-shared-quality-profile
