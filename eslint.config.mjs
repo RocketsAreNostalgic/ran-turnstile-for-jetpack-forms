@@ -20,5 +20,9 @@ export default [
 				process: 'readonly',
 			},
 		},
+		rules: {
+			// These files are command-line programs; stdout/stderr are their interface.
+			'no-console': 'off',
+		},
 	},
 ];
