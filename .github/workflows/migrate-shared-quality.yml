@@ -110,6 +110,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf node_modules
           changed="$(git status --short)"
           printf '%s\n' "$changed"
           while IFS= read -r line; do
