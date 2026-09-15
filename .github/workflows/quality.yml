@@ -15,6 +15,14 @@ permissions:
   contents: read
 
 jobs:
+  baseline:
+    if: github.event_name == 'pull_request'
+    uses: RocketsAreNostalgic/.github/.github/workflows/quality-wordpress-plugin.yml@72a90b5826db37d1e94cdcdcf3374ccf58c0aa7d
+    with:
+      php-version: '8.5'
+      node-version-file: .node-version
+      pnpm-version: '11.13.1'
+
   quality:
     name: Quality and release artifact
     runs-on: blacksmith-2vcpu-ubuntu-2404
@@ -335,3 +343,20 @@ jobs:
       - name: Destroy the pinned Plugin Check environment
         if: always()
         run: wp-env destroy --force
+
+  quality-gate:
+    if: always() && github.event_name == 'pull_request'
+    name: quality
+    needs:
+      - baseline
+      - quality
+      - compatibility
+      - plugin-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all ordinary quality lanes
+        run: |
+          test '${{ needs.baseline.result }}' = success
+          test '${{ needs.quality.result }}' = success
+          test '${{ needs.compatibility.result }}' = success
+          test '${{ needs.plugin-check.result }}' = success

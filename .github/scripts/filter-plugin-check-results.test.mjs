@@ -58,7 +58,12 @@ function expectedFixture() {
 	];
 }
 
-function runFilter({ sections = expectedFixture(), absoluteFiles = false, setup, stdout = false }) {
+function runFilter({
+	sections = expectedFixture(),
+	absoluteFiles = false,
+	setup,
+	stdout = false,
+}) {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ran-plugin-check-'));
 	const input = path.join(root, 'raw.txt');
 	const output = path.join(root, 'filtered.txt');
@@ -77,19 +82,34 @@ function runFilter({ sections = expectedFixture(), absoluteFiles = false, setup,
 	setup?.({ root, records });
 	fs.writeFileSync(input, `${records.join('\n')}\n`);
 
-	const result = spawnSync(process.execPath, [scriptPath, input, stdout ? '-' : output, root], {
-		encoding: 'utf8',
-	});
+	const result = spawnSync(
+		process.execPath,
+		[scriptPath, input, stdout ? '-' : output, root],
+		{
+			encoding: 'utf8',
+		}
+	);
+
+	let outputText = '';
+	if (stdout) {
+		outputText = result.stdout;
+	} else if (fs.existsSync(output)) {
+		outputText = fs.readFileSync(output, 'utf8');
+	}
 
 	return {
 		...result,
-		output: stdout ? result.stdout : (fs.existsSync(output) ? fs.readFileSync(output, 'utf8') : ''),
+		output: outputText,
 	};
 }
 
 function assertGateFailsWithEvidence(result) {
 	assert.notEqual(result.status, 0);
-	assert.notEqual(result.output, '', 'filtered evidence should be written before failure');
+	assert.notEqual(
+		result.output,
+		'',
+		'filtered evidence should be written before failure'
+	);
 }
 
 test('accepts each of the six expected findings exactly once', () => {
@@ -98,7 +118,8 @@ test('accepts each of the six expected findings exactly once', () => {
 	assert.equal(result.status, 0, result.stderr);
 	assert.equal(result.output.match(/"type":"WARNING"/g)?.length, 6);
 	assert.equal(
-		result.output.match(/Accepted Cloudflare Turnstile dependency/g)?.length,
+		result.output.match(/Accepted Cloudflare Turnstile dependency/g)
+			?.length,
 		6
 	);
 });
@@ -111,16 +132,25 @@ test('writes only filtered evidence to stdout', () => {
 	assert.doesNotMatch(result.output, /Accepted 6 expected/);
 });
 
-for (const url of ['https://evil.example/tracker.js', 'http://evil.example/tracker.js', '//evil.example/tracker.js']) {
+for (const url of [
+	'https://evil.example/tracker.js',
+	'http://evil.example/tracker.js',
+	'//evil.example/tracker.js',
+]) {
 	test(`keeps both findings on a mixed URL line as errors: ${url}`, () => {
 		const sections = expectedFixture();
 		sections[0].sourceLines[1] += ` '${url}'`;
-		sections[0].findings.push(finding(enqueuedCode, { line: 2, column: 100 }));
+		sections[0].findings.push(
+			finding(enqueuedCode, { line: 2, column: 100 })
+		);
 		const result = runFilter({ sections });
 
 		assertGateFailsWithEvidence(result);
 		assert.equal(result.output.match(/"type":"ERROR"/g)?.length, 2);
-		assert.match(result.stderr, /Filtered Plugin Check results still contain ERROR/);
+		assert.match(
+			result.stderr,
+			/Filtered Plugin Check results still contain ERROR/
+		);
 	});
 }
 
@@ -208,7 +238,9 @@ test('rejects a traversing source path', () => {
 });
 
 test('rejects an absolute source path outside the source root', () => {
-	const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ran-plugin-check-outside-'));
+	const outsideRoot = fs.mkdtempSync(
+		path.join(os.tmpdir(), 'ran-plugin-check-outside-')
+	);
 	const outsideFile = path.join(outsideRoot, 'secret.php');
 	fs.writeFileSync(outsideFile, "const URL = 'https://example.invalid';\n");
 
