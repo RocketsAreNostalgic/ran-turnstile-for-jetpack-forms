@@ -1,0 +1,9 @@
+node_modules/
+vendor/
+dist/
+.agents/
+.codex/
+CHANGELOG.md
+composer.lock
+pnpm-lock.yaml
+languages/*.pot
