@@ -1,0 +1,94 @@
+name: Migrate shared quality profile
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.head.ref == 'chore/adopt-shared-quality-profile'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.5'
+          coverage: none
+          tools: composer:v2
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+        with:
+          version: 11.13.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .node-version
+
+      - name: Add shared baseline and terminal fan-in
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('.github/workflows/quality.yml')
+          text = path.read_text()
+          marker = 'jobs:\n'
+          if text.count(marker) != 1:
+              raise SystemExit('quality.yml jobs marker changed unexpectedly')
+          if 'baseline:\n' in text or 'quality-gate:\n' in text:
+              raise SystemExit('shared quality jobs already present')
+
+          baseline = '''jobs:\n  baseline:\n    if: github.event_name == 'pull_request'\n    uses: RocketsAreNostalgic/.github/.github/workflows/quality-wordpress-plugin.yml@72a90b5826db37d1e94cdcdcf3374ccf58c0aa7d\n    with:\n      php-version: '8.5'\n      node-version-file: .node-version\n      pnpm-version: '11.13.1'\n\n'''
+          text = text.replace(marker, baseline, 1)
+          text = text.rstrip() + '''\n\n  quality-gate:\n    if: ${{ always() && github.event_name == 'pull_request' }}\n    name: quality\n    needs:\n      - baseline\n      - quality\n      - compatibility\n      - plugin-check\n    runs-on: ubuntu-latest\n    steps:\n      - name: Require all ordinary quality lanes\n        run: |\n          test '${{ needs.baseline.result }}' = success\n          test '${{ needs.quality.result }}' = success\n          test '${{ needs.compatibility.result }}' = success\n          test '${{ needs.plugin-check.result }}' = success\n'''
+          path.write_text(text)
+
+      - name: Refresh only shared quality dependency locks
+        run: |
+          composer update \
+            ran/coding-standards \
+            phpcompatibility/php-compatibility \
+            phpcompatibility/phpcompatibility-paragonie \
+            phpcompatibility/phpcompatibility-wp \
+            --with-dependencies \
+            --no-interaction \
+            --prefer-dist \
+            --no-progress
+          pnpm install --lockfile-only
+
+      - name: Prove generated locks install exactly
+        run: |
+          rm -rf vendor node_modules
+          composer install --no-interaction --prefer-dist --no-progress
+          pnpm install --frozen-lockfile
+          composer check
+
+      - name: Commit only workflow and generated locks
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed="$(git status --short)"
+          printf '%s\n' "$changed"
+          while IFS= read -r line; do
+            [[ -z "$line" \
+              || "$line" == ' M .github/workflows/quality.yml' \
+              || "$line" == ' M composer.lock' \
+              || "$line" == '?? pnpm-lock.yaml' ]]
+          done <<< "$changed"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/quality.yml composer.lock pnpm-lock.yaml
+          git diff --cached --quiet && exit 0
+          git commit -m 'chore: finish shared quality migration'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
