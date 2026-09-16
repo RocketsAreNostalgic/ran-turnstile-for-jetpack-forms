@@ -188,8 +188,9 @@ jobs:
           node --check scripts/make-pot.mjs
           node scripts/make-pot.mjs
           git diff --exit-code -- languages/ran-turnstile-for-jetpack-forms.pot
-      - name: Rebuild, replace, and verify exact release assets
-        id: release
+
+      - name: Prove the exact existing release before recovery
+        id: recovery-state
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -199,44 +200,90 @@ jobs:
           commit="$(git rev-parse HEAD)"
           test "$(git rev-parse "${TAG_NAME}^{commit}")" = "$commit"
 
-          archive="dist/ran-turnstile-for-jetpack-forms-${version}.zip"
+          archive="ran-turnstile-for-jetpack-forms-${version}.zip"
           checksum="${archive}.sha256"
-          manifest="dist/ran-turnstile-for-jetpack-forms-${version}.manifest.json"
+          manifest="ran-turnstile-for-jetpack-forms-${version}.manifest.json"
+          expected="$(printf '%s\n' "$manifest" "$archive" "$checksum" | jq -Rsc 'split("\n") | map(select(length > 0)) | sort')"
+
+          tag_ref="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}")"
+          jq -e --arg commit "$commit" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_ref" >/dev/null
+          release="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}")"
+          jq -e --arg commit "$commit" --arg tag "$TAG_NAME" '.tag_name == $tag and .target_commitish == $commit and .draft == false and .immutable == false' <<< "$release" >/dev/null
+          jq -e --argjson expected "$expected" '([.assets[].name] - $expected) | length == 0' <<< "$release" >/dev/null
+
+          {
+            printf 'commit=%s\n' "$commit"
+            printf 'release-id=%s\n' "$(jq -er '.id' <<< "$release")"
+            printf 'version=%s\n' "$version"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Rebuild canonical assets without release credentials
+        run: env -u GH_TOKEN -u GITHUB_TOKEN bash scripts/create-release-assets.sh "$TAG_NAME"
+
+      - name: Replace and read back exact release assets
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RAN_RECOVERY_COMMIT: ${{ steps.recovery-state.outputs.commit }}
+          RAN_RECOVERY_RELEASE_ID: ${{ steps.recovery-state.outputs.release-id }}
+          RAN_RECOVERY_VERSION: ${{ steps.recovery-state.outputs.version }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RAN_RECOVERY_COMMIT"
+          test "$(git rev-parse "${TAG_NAME}^{commit}")" = "$RAN_RECOVERY_COMMIT"
+
+          archive="dist/ran-turnstile-for-jetpack-forms-${RAN_RECOVERY_VERSION}.zip"
+          checksum="${archive}.sha256"
+          manifest="dist/ran-turnstile-for-jetpack-forms-${RAN_RECOVERY_VERSION}.manifest.json"
           expected="$(printf '%s\n' "$(basename "$manifest")" "$(basename "$archive")" "$(basename "$checksum")" | jq -Rsc 'split("\n") | map(select(length > 0)) | sort')"
 
           tag_ref_before="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}")"
-          jq -e --arg commit "$commit" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_ref_before" >/dev/null
+          jq -e --arg commit "$RAN_RECOVERY_COMMIT" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_ref_before" >/dev/null
           release_before="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}")"
-          jq -e --arg commit "$commit" --arg tag "$TAG_NAME" '.tag_name == $tag and .target_commitish == $commit and .draft == false and .immutable == false' <<< "$release_before" >/dev/null
+          jq -e --arg commit "$RAN_RECOVERY_COMMIT" --argjson release_id "$RAN_RECOVERY_RELEASE_ID" --arg tag "$TAG_NAME" '.id == $release_id and .tag_name == $tag and .target_commitish == $commit and .draft == false and .immutable == false' <<< "$release_before" >/dev/null
           jq -e --argjson expected "$expected" '([.assets[].name] - $expected) | length == 0' <<< "$release_before" >/dev/null
-          release_id="$(jq -er '.id' <<< "$release_before")"
 
-          bash scripts/create-release-assets.sh "$TAG_NAME"
           manifest_sha256="$(jq -er '.sha256 | select(test("^[0-9a-f]{64}$"))' "$manifest")"
           archive_sha256="$(sha256sum "$archive" | awk '{print $1}')"
           test "$manifest_sha256" = "$archive_sha256"
-          jq -e --arg archive "$(basename "$archive")" --arg commit "$commit" --arg sha256 "$archive_sha256" --arg tag "$TAG_NAME" --arg version "$version" '.archive == $archive and .commit == $commit and .sha256 == $sha256 and .tag == $tag and .version == $version' "$manifest" >/dev/null
+          jq -e --arg archive "$(basename "$archive")" --arg commit "$RAN_RECOVERY_COMMIT" --arg sha256 "$archive_sha256" --arg tag "$TAG_NAME" --arg version "$RAN_RECOVERY_VERSION" '.archive == $archive and .commit == $commit and .sha256 == $sha256 and .tag == $tag and .version == $version' "$manifest" >/dev/null
           (cd dist && sha256sum --check --strict "$(basename "$checksum")")
           unzip -tqq "$archive"
 
           assets=("$archive" "$checksum" "$manifest")
           local_digests="$(for asset in "${assets[@]}"; do jq -nc --arg name "$(basename "$asset")" --arg digest "sha256:$(sha256sum "$asset" | awk '{print $1}')" '{name: $name, digest: $digest}'; done | jq -sc 'sort_by(.name)')"
+
+          set +e
           gh release upload "$TAG_NAME" "${assets[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+          upload_status=$?
+          set -e
 
           verified=false
           for attempt in 1 2 3; do
-            release_after="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}")"
-            if jq -e --arg commit "$commit" --argjson release_id "$release_id" --arg tag "$TAG_NAME" '.id == $release_id and .tag_name == $tag and .target_commitish == $commit and .draft == false and .immutable == false' <<< "$release_after" >/dev/null; then
-              actual_assets="$(jq -c '[.assets[].name] | sort' <<< "$release_after")"
-              remote_digests="$(jq -c '[.assets[] | {name, digest}] | sort_by(.name)' <<< "$release_after")"
-              if [[ "$actual_assets" == "$expected" && "$remote_digests" == "$local_digests" ]]; then verified=true; break; fi
+            if release_after="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}")" \
+              && tag_ref_after="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}")"; then
+              if jq -e --arg commit "$RAN_RECOVERY_COMMIT" --argjson release_id "$RAN_RECOVERY_RELEASE_ID" --arg tag "$TAG_NAME" '.id == $release_id and .tag_name == $tag and .target_commitish == $commit and .draft == false and .immutable == false' <<< "$release_after" >/dev/null \
+                && jq -e --arg commit "$RAN_RECOVERY_COMMIT" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_ref_after" >/dev/null; then
+                actual_assets="$(jq -c '[.assets[].name] | sort' <<< "$release_after")"
+                remote_digests="$(jq -c '[.assets[] | {name, digest}] | sort_by(.name)' <<< "$release_after")"
+                if [[ "$actual_assets" == "$expected" && "$remote_digests" == "$local_digests" ]]; then
+                  verified=true
+                  break
+                fi
+              fi
             fi
             [[ "$attempt" -lt 3 ]] && sleep 2
           done
-          if [[ "$verified" != true ]]; then echo '::error::Recovered release readback did not match the rebuilt provenance.'; exit 1; fi
 
-          tag_ref_after="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}")"
-          jq -e --arg commit "$commit" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_ref_after" >/dev/null
+          if [[ "$verified" != true ]]; then
+            echo '::error::Recovered release readback did not match the rebuilt provenance.'
+            exit 1
+          fi
+          if [[ "$upload_status" -ne 0 ]]; then
+            echo "::error::Asset upload returned status ${upload_status} even though final readback was exact."
+            exit "$upload_status"
+          fi
+
           echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
 
   deploy-wordpress-org:
