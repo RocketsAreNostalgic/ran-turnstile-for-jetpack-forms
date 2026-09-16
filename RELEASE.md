@@ -53,17 +53,18 @@ disabled in source control until the deployment contract is deliberately
 enabled.
 
 Published GitHub releases intentionally remain mutable only for this bounded
-recovery case. A recovery can replace the three canonical release assets when a
-published asset is missing or needs deterministic reconstruction from the
-existing exact release tag without minting a new plugin version. Before
-replacement, the workflow proves that the checked-out tag, Git tag ref, and
-existing GitHub release all identify the same exact commit and that the release
-is published and mutable. It then rebuilds the canonical assets and verifies
-the manifest, archive checksum, tag, version, and source commit. After
-`--clobber`, it re-reads the same release and tag, requires the exact
-manifest/ZIP/checksum asset set, and compares GitHub's SHA-256 digest for every
-published asset with the rebuilt local file. Any identity, target, asset-set,
-or digest mismatch fails closed.
+recovery case. Historical repository code is checked out, validated, and used
+to rebuild the three canonical assets in a separate job with no repository
+token permissions. Those rebuilt files cross into a fresh write-capable job
+only as a workflow artifact; the publisher does not check out or execute the
+historical repository source. Before replacement, that fresh publisher resolves
+the live Git tag and existing GitHub release again and requires both to identify
+the exact commit recorded in the rebuilt manifest. It also verifies the
+manifest, archive checksum, tag, version, source commit, release mutability, and
+existing asset boundary before `--clobber`. After replacement it re-reads the
+same release and tag, requires the exact manifest/ZIP/checksum asset set, and
+compares GitHub's SHA-256 digest for every published asset with the rebuilt
+local file. Any identity, target, asset-set, or digest mismatch fails closed.
 
 ## Release archive
 
@@ -89,11 +90,12 @@ Jetpack, and GitHub publication. The release workflow accepts only the artifact
 from the successful same-repository Quality run for the exact `main` commit.
 
 For manual WordPress.org publication or recovery, dispatch the release workflow
-with an existing `v<version>` tag. That explicit path checks out and proves the
-exact existing tag/release target, rebuilds and verifies the canonical release
-assets, replaces only the expected three GitHub release assets, and verifies the
-final published target and SHA-256 digests before any separately approved
-protected SVN action can consume them.
+with an existing `v<version>` tag. The credential-free build job checks out and
+rebuilds that exact tag, then a fresh publisher job independently binds the
+artifact back to the live tag/release target before replacing only the expected
+three GitHub release assets. The publisher verifies the final target and
+SHA-256 digests before any separately approved protected SVN action can consume
+them.
 
 ## WordPress.org publication
 
