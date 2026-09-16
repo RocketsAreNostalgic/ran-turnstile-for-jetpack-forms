@@ -57,7 +57,10 @@ test('manual recovery keeps exact guards before mutation and exact readback afte
 	]) {
 		const position = publishStep.indexOf(precondition);
 		assert.ok(position >= 0, `missing pre-mutation guard: ${precondition}`);
-		assert.ok(position < upload, `pre-mutation guard moved after upload: ${precondition}`);
+		assert.ok(
+			position < upload,
+			`pre-mutation guard moved after upload: ${precondition}`
+		);
 	}
 
 	for (const postcondition of [
@@ -69,7 +72,10 @@ test('manual recovery keeps exact guards before mutation and exact readback afte
 		'if [[ "$verified" != true ]]',
 	]) {
 		const position = publishStep.indexOf(postcondition, upload + 1);
-		assert.ok(position > upload, `missing post-mutation readback: ${postcondition}`);
+		assert.ok(
+			position > upload,
+			`missing post-mutation readback: ${postcondition}`
+		);
 	}
 
 	assert.ok(
@@ -85,7 +91,9 @@ test('manual recovery proves exact tag identity in both trusted phases', () => {
 	);
 	assert.ok(
 		recovery.lastIndexOf('git rev-parse "${TAG_NAME}^{commit}"') >
-			recovery.indexOf('- name: Replace and read back exact release assets'),
+			recovery.indexOf(
+				'- name: Replace and read back exact release assets'
+			),
 		'exact tag verification is missing from the publication phase'
 	);
 });
