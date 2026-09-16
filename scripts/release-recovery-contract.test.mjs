@@ -69,6 +69,7 @@ test('manual recovery keeps exact guards before mutation and exact readback afte
 		'.id == $release_id and .tag_name == $tag and .target_commitish == $commit and .draft == false and .immutable == false',
 		'[.assets[].name] | sort',
 		'[.assets[] | {name, digest}] | sort_by(.name)',
+		'if [[ "$actual_assets" == "$expected" && "$remote_digests" == "$local_digests" ]]',
 		'if [[ "$verified" != true ]]',
 	]) {
 		const position = publishStep.indexOf(postcondition, upload + 1);
