@@ -16,8 +16,7 @@ assert.ok(deployStart > publishStart, 'deploy-wordpress-org job is missing');
 
 const build = workflow.slice(buildStart, publishStart);
 const publisher = workflow.slice(publishStart, deployStart);
-const checksumIdentity =
-	`printf '%s  %s\\n' "$archive_sha256" "$(basename "$archive")" | cmp -s - "$checksum"`;
+const checksumIdentity = `printf '%s  %s\\n' "$archive_sha256" "$(basename "$archive")" | cmp -s - "$checksum"`;
 
 test('historical release code runs in a separate job without repository token permissions', () => {
 	assert.match(build, /permissions: \{\}/);
