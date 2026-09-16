@@ -27,12 +27,18 @@ test('historical release code runs in a separate job without repository token pe
 	assert.match(build, /git checkout --detach "\$TAG_NAME"/);
 	assert.match(build, /git rev-parse "\$\{TAG_NAME\}\^\{commit\}"/);
 	assert.match(build, /bash scripts\/create-release-assets\.sh "\$TAG_NAME"/);
-	assert.match(build, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/);
+	assert.match(
+		build,
+		/actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/
+	);
 });
 
 test('write-capable recovery publisher starts fresh and consumes only the rebuilt artifact', () => {
 	assert.match(publisher, /needs: package-release-build/);
-	assert.match(publisher, /permissions:\n\s+actions: read\n\s+contents: write/);
+	assert.match(
+		publisher,
+		/permissions:\n\s+actions: read\n\s+contents: write/
+	);
 	assert.match(
 		publisher,
 		/actions\/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c/
