@@ -188,14 +188,12 @@ jobs:
           node --check scripts/make-pot.mjs
           node scripts/make-pot.mjs
           git diff --exit-code -- languages/ran-turnstile-for-jetpack-forms.pot
-      - name: Build and upload verified release assets
+      - name: Rebuild, replace, and verify exact release assets
         id: release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          bash scripts/create-release-assets.sh "$TAG_NAME"
-          version="${TAG_NAME#v}"
-          gh release upload "$TAG_NAME" "dist/ran-turnstile-for-jetpack-forms-${version}.zip" "dist/ran-turnstile-for-jetpack-forms-${version}.zip.sha256" "dist/ran-turnstile-for-jetpack-forms-${version}.manifest.json" --clobber --repo "$GITHUB_REPOSITORY"
+          bash scripts/recover-release-assets.sh "$TAG_NAME"
           echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
 
   deploy-wordpress-org:
