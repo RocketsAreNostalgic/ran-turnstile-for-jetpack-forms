@@ -55,14 +55,15 @@ enabled.
 Published GitHub releases intentionally remain mutable only for this bounded
 recovery case. A recovery can replace the three canonical release assets when a
 published asset is missing or needs deterministic reconstruction from the
-immutable release tag without minting a new plugin version. Before replacement,
-the workflow proves that the checked-out tag, Git tag ref, and existing GitHub
-release all identify the same exact commit and that the release is published and
-mutable. It then rebuilds the canonical assets and verifies the manifest,
-archive checksum, tag, version, and source commit. After `--clobber`, it re-reads
-the same release and tag, requires the exact manifest/ZIP/checksum asset set, and
-compares GitHub's SHA-256 digest for every published asset with the rebuilt
-local file. Any identity, target, asset-set, or digest mismatch fails closed.
+existing exact release tag without minting a new plugin version. Before
+replacement, the workflow proves that the checked-out tag, Git tag ref, and
+existing GitHub release all identify the same exact commit and that the release
+is published and mutable. It then rebuilds the canonical assets and verifies
+the manifest, archive checksum, tag, version, and source commit. After
+`--clobber`, it re-reads the same release and tag, requires the exact
+manifest/ZIP/checksum asset set, and compares GitHub's SHA-256 digest for every
+published asset with the rebuilt local file. Any identity, target, asset-set,
+or digest mismatch fails closed.
 
 ## Release archive
 
