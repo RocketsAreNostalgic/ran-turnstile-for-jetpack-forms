@@ -61,10 +61,12 @@ historical repository source. Before replacement, that fresh publisher resolves
 the live Git tag and existing GitHub release again and requires both to identify
 the exact commit recorded in the rebuilt manifest. It also verifies the
 manifest, archive checksum, tag, version, source commit, release mutability, and
-existing asset boundary before `--clobber`. After replacement it re-reads the
-same release and tag, requires the exact manifest/ZIP/checksum asset set, and
-compares GitHub's SHA-256 digest for every published asset with the rebuilt
-local file. Any identity, target, asset-set, or digest mismatch fails closed.
+existing asset boundary before replacement. Asset deletion and upload are bound
+to that prevalidated release ID rather than resolving the mutable tag again.
+After replacement the publisher re-reads the same release and tag, requires the
+exact manifest/ZIP/checksum asset set, and compares GitHub's SHA-256 digest for
+every published asset with the rebuilt local file. Any identity, target,
+asset-set, or digest mismatch fails closed.
 
 ## Release archive
 
@@ -92,10 +94,10 @@ from the successful same-repository Quality run for the exact `main` commit.
 For manual WordPress.org publication or recovery, dispatch the release workflow
 with an existing `v<version>` tag. The credential-free build job checks out and
 rebuilds that exact tag, then a fresh publisher job independently binds the
-artifact back to the live tag/release target before replacing only the expected
-three GitHub release assets. The publisher verifies the final target and
-SHA-256 digests before any separately approved protected SVN action can consume
-them.
+artifact and replacement to the live tag, exact release ID, and release target
+before replacing only the expected three GitHub release assets. The publisher
+verifies the final target and SHA-256 digests before any separately approved
+protected SVN action can consume them.
 
 ## WordPress.org publication
 
