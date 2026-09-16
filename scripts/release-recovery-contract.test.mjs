@@ -16,6 +16,8 @@ assert.ok(deployStart > publishStart, 'deploy-wordpress-org job is missing');
 
 const build = workflow.slice(buildStart, publishStart);
 const publisher = workflow.slice(publishStart, deployStart);
+const checksumIdentity =
+	`printf '%s  %s\\n' "$archive_sha256" "$(basename "$archive")" | cmp -s - "$checksum"`;
 
 test('historical release code runs in a separate job without repository token permissions', () => {
 	assert.match(build, /permissions: \{\}/);
@@ -27,6 +29,10 @@ test('historical release code runs in a separate job without repository token pe
 	assert.match(build, /git checkout --detach "\$TAG_NAME"/);
 	assert.match(build, /git rev-parse "\$\{TAG_NAME\}\^\{commit\}"/);
 	assert.match(build, /bash scripts\/create-release-assets\.sh "\$TAG_NAME"/);
+	assert.ok(
+		build.includes(checksumIdentity),
+		'historical build must bind the checksum file to the exact archive digest and filename'
+	);
 	assert.match(
 		build,
 		/actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/
@@ -82,6 +88,7 @@ test('manual recovery keeps exact guards before mutation and exact readback afte
 		'([.assets[].name] - $expected) | length == 0',
 		'release_id="$(jq -er',
 		'.archive == $archive and .commit == $commit and .sha256 == $sha256 and .tag == $tag and .version == $version',
+		checksumIdentity,
 		'releases/assets/${existing_asset_id}',
 	]) {
 		const position = publisher.indexOf(precondition);
