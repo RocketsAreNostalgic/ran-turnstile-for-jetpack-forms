@@ -4,7 +4,10 @@ import test from 'node:test';
 
 const workflow = await readFile('.github/workflows/release-please.yml', 'utf8');
 const packageStart = workflow.indexOf('\n  package-release:\n');
-const deployStart = workflow.indexOf('\n  deploy-wordpress-org:\n', packageStart);
+const deployStart = workflow.indexOf(
+	'\n  deploy-wordpress-org:\n',
+	packageStart
+);
 
 assert.ok(packageStart > 0, 'package-release job is missing');
 assert.ok(deployStart > packageStart, 'deploy-wordpress-org job is missing');
