@@ -37,23 +37,57 @@ test('historical build code runs without GitHub release credentials', () => {
 	assert.doesNotMatch(buildStep, /GH_TOKEN:\s*\$\{\{/);
 });
 
-test('manual recovery proves exact target, asset set, and published digests', () => {
-	for (const contract of [
-		'git rev-parse "${TAG_NAME}^{commit}"',
-		'.target_commitish == $commit',
-		'.immutable == false',
+test('manual recovery keeps exact guards before mutation and exact readback after it', () => {
+	const publishStart = recovery.indexOf(
+		'- name: Replace and read back exact release assets'
+	);
+	assert.ok(publishStart > 0, 'trusted publication step is missing');
+	const publishStep = recovery.slice(publishStart);
+	const upload = publishStep.indexOf(
+		'gh release upload "$TAG_NAME" "${assets[@]}" --clobber'
+	);
+	assert.ok(upload > 0, 'release asset mutation is missing');
+
+	for (const precondition of [
+		'tag_ref_before="$(gh api',
+		'release_before="$(gh api',
+		'.id == $release_id and .tag_name == $tag and .target_commitish == $commit and .draft == false and .immutable == false',
 		'([.assets[].name] - $expected) | length == 0',
+		'.archive == $archive and .commit == $commit and .sha256 == $sha256 and .tag == $tag and .version == $version',
+	]) {
+		const position = publishStep.indexOf(precondition);
+		assert.ok(position >= 0, `missing pre-mutation guard: ${precondition}`);
+		assert.ok(position < upload, `pre-mutation guard moved after upload: ${precondition}`);
+	}
+
+	for (const postcondition of [
+		'release_after="$(gh api',
+		'tag_ref_after="$(gh api',
+		'.id == $release_id and .tag_name == $tag and .target_commitish == $commit and .draft == false and .immutable == false',
 		'[.assets[].name] | sort',
 		'[.assets[] | {name, digest}] | sort_by(.name)',
-		'gh release upload "$TAG_NAME" "${assets[@]}" --clobber',
-		'upload_status=$?',
 		'if [[ "$verified" != true ]]',
 	]) {
-		assert.ok(
-			recovery.includes(contract),
-			`missing recovery contract: ${contract}`
-		);
+		const position = publishStep.indexOf(postcondition, upload + 1);
+		assert.ok(position > upload, `missing post-mutation readback: ${postcondition}`);
 	}
+
+	assert.ok(
+		publishStep.indexOf('upload_status=$?', upload) > upload,
+		'upload status must be captured before final readback completes'
+	);
+});
+
+test('manual recovery proves exact tag identity in both trusted phases', () => {
+	assert.ok(
+		recovery.indexOf('git rev-parse "${TAG_NAME}^{commit}"') >= 0,
+		'exact tag preflight is missing'
+	);
+	assert.ok(
+		recovery.lastIndexOf('git rev-parse "${TAG_NAME}^{commit}"') >
+			recovery.indexOf('- name: Replace and read back exact release assets'),
+		'exact tag verification is missing from the publication phase'
+	);
 });
 
 test('recovery proof stays in the current workflow rather than a tag-only helper', () => {
