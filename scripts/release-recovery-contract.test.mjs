@@ -10,11 +10,14 @@ test('manual recovery proves exact tag, release target, asset set, and digests i
 		'.target_commitish == $commit',
 		'.immutable == false',
 		'([.assets[].name] - $expected) | length == 0',
-		"[.assets[].name] | sort",
-		"[.assets[] | {name, digest}] | sort_by(.name)",
+		'[.assets[].name] | sort',
+		'[.assets[] | {name, digest}] | sort_by(.name)',
 		'gh release upload "$TAG_NAME" "${assets[@]}" --clobber',
 	]) {
-		assert.ok(workflow.includes(contract), `missing recovery contract: ${contract}`);
+		assert.ok(
+			workflow.includes(contract),
+			`missing recovery contract: ${contract}`
+		);
 	}
 });
 
