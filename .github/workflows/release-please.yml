@@ -218,6 +218,7 @@ jobs:
             --arg version "$version" \
             '.archive == $archive and .commit == $commit and .sha256 == $sha256 and .tag == $tag and .version == $version' \
             "$manifest" >/dev/null
+          printf '%s  %s\n' "$archive_sha256" "$(basename "$archive")" | cmp -s - "$checksum"
           (cd dist && sha256sum --check --strict "$(basename "$checksum")")
           unzip -tqq "$archive"
 
@@ -308,6 +309,7 @@ jobs:
             --arg version "$version" \
             '.archive == $archive and .commit == $commit and .sha256 == $sha256 and .tag == $tag and .version == $version' \
             "$manifest" >/dev/null
+          printf '%s  %s\n' "$archive_sha256" "$(basename "$archive")" | cmp -s - "$checksum"
           (cd dist && sha256sum --check --strict "$(basename "$checksum")")
           unzip -tqq "$archive"
 
