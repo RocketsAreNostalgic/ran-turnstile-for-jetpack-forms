@@ -224,12 +224,13 @@ jobs:
       - name: Upload rebuilt recovery assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ran-turnstile-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ran-turnstile-recovery-${{ github.run_id }}
           path: |
             dist/ran-turnstile-for-jetpack-forms-*.zip
             dist/ran-turnstile-for-jetpack-forms-*.zip.sha256
             dist/ran-turnstile-for-jetpack-forms-*.manifest.json
           if-no-files-found: error
+          overwrite: true
           retention-days: 7
 
   package-release:
@@ -248,7 +249,7 @@ jobs:
       - name: Download the rebuilt recovery assets
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: ran-turnstile-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ran-turnstile-recovery-${{ github.run_id }}
           path: dist
 
       - name: Replace and read back exact release assets
@@ -266,8 +267,31 @@ jobs:
           expected="$(printf '%s\n' "$(basename "$manifest")" "$(basename "$archive")" "$(basename "$checksum")" | jq -Rsc 'split("\n") | map(select(length > 0)) | sort')"
           commit="$(jq -er '.commit | select(test("^[0-9a-f]{40}$"))' "$manifest")"
 
+          resolve_tag_commit() {
+            local object_json="$1" object_type object_sha depth
+            for depth in {1..16}; do
+              object_type="$(jq -er '.object.type' <<< "$object_json")"
+              object_sha="$(jq -er '.object.sha | select(test("^[0-9a-f]{40}$"))' <<< "$object_json")"
+              case "$object_type" in
+                commit)
+                  printf '%s\n' "$object_sha"
+                  return 0
+                  ;;
+                tag)
+                  object_json="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${object_sha}")"
+                  ;;
+                *)
+                  echo "::error::Unsupported Git tag object type: ${object_type}"
+                  return 1
+                  ;;
+              esac
+            done
+            echo '::error::Git tag indirection exceeds the supported depth.'
+            return 1
+          }
+
           tag_ref_before="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}")"
-          jq -e --arg commit "$commit" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_ref_before" >/dev/null
+          test "$(resolve_tag_commit "$tag_ref_before")" = "$commit"
           release_before="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}")"
           jq -e --arg commit "$commit" --arg tag "$TAG_NAME" '.tag_name == $tag and .target_commitish == $commit and .draft == false and .immutable == false' <<< "$release_before" >/dev/null
           jq -e --argjson expected "$expected" '([.assets[].name] - $expected) | length == 0' <<< "$release_before" >/dev/null
@@ -290,9 +314,27 @@ jobs:
           assets=("$archive" "$checksum" "$manifest")
           local_digests="$(for asset in "${assets[@]}"; do jq -nc --arg name "$(basename "$asset")" --arg digest "sha256:$(sha256sum "$asset" | awk '{print $1}')" '{name: $name, digest: $digest}'; done | jq -sc 'sort_by(.name)')"
 
+          mutation_status=0
           set +e
-          gh release upload "$TAG_NAME" "${assets[@]}" --clobber --repo "$GITHUB_REPOSITORY"
-          upload_status=$?
+          for asset in "${assets[@]}"; do
+            asset_name="$(basename "$asset")"
+            existing_asset_id="$(jq -r --arg name "$asset_name" '[.assets[] | select(.name == $name) | .id] | if length > 1 then error("Duplicate release asset name") elif length == 1 then (.[0] | tostring) else "" end' <<< "$release_before")"
+            if [[ -n "$existing_asset_id" ]]; then
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${existing_asset_id}" >/dev/null || mutation_status=$?
+              if [[ "$mutation_status" -ne 0 ]]; then
+                continue
+              fi
+            fi
+            curl --fail-with-body --silent --show-error -L \
+              -X POST \
+              -H 'Accept: application/vnd.github+json' \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H 'X-GitHub-Api-Version: 2026-03-10' \
+              -H 'Content-Type: application/octet-stream' \
+              --data-binary "@${asset}" \
+              "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets?name=${asset_name}" \
+              >/dev/null || mutation_status=$?
+          done
           set -e
 
           verified=false
@@ -300,7 +342,7 @@ jobs:
             if release_after="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}")" \
               && tag_ref_after="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}")"; then
               if jq -e --arg commit "$commit" --argjson release_id "$release_id" --arg tag "$TAG_NAME" '.id == $release_id and .tag_name == $tag and .target_commitish == $commit and .draft == false and .immutable == false' <<< "$release_after" >/dev/null \
-                && jq -e --arg commit "$commit" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_ref_after" >/dev/null; then
+                && test "$(resolve_tag_commit "$tag_ref_after")" = "$commit"; then
                 actual_assets="$(jq -c '[.assets[].name] | sort' <<< "$release_after")"
                 remote_digests="$(jq -c '[.assets[] | {name, digest}] | sort_by(.name)' <<< "$release_after")"
                 if [[ "$actual_assets" == "$expected" && "$remote_digests" == "$local_digests" ]]; then
@@ -316,9 +358,9 @@ jobs:
             echo '::error::Recovered release readback did not match the rebuilt provenance.'
             exit 1
           fi
-          if [[ "$upload_status" -ne 0 ]]; then
-            echo "::error::Asset upload returned status ${upload_status} even though final readback was exact."
-            exit "$upload_status"
+          if [[ "$mutation_status" -ne 0 ]]; then
+            echo "::error::Asset replacement returned status ${mutation_status} even though final readback was exact."
+            exit "$mutation_status"
           fi
 
           echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
