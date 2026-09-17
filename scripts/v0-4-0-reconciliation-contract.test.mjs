@@ -39,6 +39,10 @@ test('one-time reconciliation is pinned to the exact historical release identity
 		);
 	}
 	assert.match(
+		workflow,
+		/concurrency:\n\s+group: release-please-main\n\s+cancel-in-progress: false/
+	);
+	assert.match(
 		build,
 		/github\.event\.workflow_run\.path == '\.github\/workflows\/quality\.yml'/
 	);
