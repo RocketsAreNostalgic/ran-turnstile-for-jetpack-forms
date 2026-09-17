@@ -30,9 +30,13 @@ for (const line of lines) {
 			throw new Error(`Expected Plugin Check array for ${currentFile}`);
 		}
 
+		const normalizedFile = currentFile.replaceAll('\\', '/');
+		const historicalReadme =
+			normalizedFile === 'readme.txt' || normalizedFile.endsWith('/readme.txt');
+
 		const remaining = findings.filter((finding) => {
 			const historicalMetadataFinding =
-				currentFile === 'readme.txt' &&
+				historicalReadme &&
 				finding?.type === 'ERROR' &&
 				finding?.code === 'outdated_tested_upto_header' &&
 				finding?.line === 0 &&
