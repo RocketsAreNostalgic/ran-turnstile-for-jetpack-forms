@@ -175,6 +175,18 @@ test('rejects the historical Tested up to code for a different release tag', () 
 	assert.match(result.stderr, /Invalid Plugin Check finding for readme\.txt/);
 });
 
+test('rejects the historical Tested up to code when the source Tested up to value changes', () => {
+	const readme = historicalReadmeSection();
+	readme.sourceLines[1] = 'Tested up to: 7.1';
+	const result = runFilter({
+		sections: [...expectedFixture(), readme],
+	});
+
+	assert.notEqual(result.status, 0);
+	assert.equal(result.output, '');
+	assert.match(result.stderr, /Invalid Plugin Check finding for readme\.txt/);
+});
+
 test('rejects the historical Tested up to code when the exact message changes', () => {
 	const result = runFilter({
 		sections: [
