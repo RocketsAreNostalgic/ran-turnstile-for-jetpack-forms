@@ -3,7 +3,10 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const workflow = await readFile('.github/workflows/release-publisher.yml', 'utf8');
+const workflow = await readFile(
+	'.github/workflows/release-publisher.yml',
+	'utf8'
+);
 assert.equal(
 	existsSync('.github/workflows/release-please.yml'),
 	false,
