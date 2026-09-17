@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const workflow = readFileSync(
-	new URL('../.github/workflows/release-please.yml', import.meta.url),
+	new URL('../.github/workflows/release-publisher.yml', import.meta.url),
 	'utf8'
+);
+const legacyWorkflowUrl = new URL('../.github/workflows/release-please.yml', import.meta.url);
+assert.equal(
+	existsSync(legacyWorkflowUrl),
+	false,
+	'legacy dispatchable workflow path must stay absent so historical tags cannot be manually dispatched'
 );
 
 test('release job preserves authenticated canonical Quality admission', () => {
