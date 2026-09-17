@@ -33,7 +33,10 @@ test('one-time reconciliation is pinned to the exact historical release identity
 		"RELEASE_PR: '8'",
 		'RELEASE_PR_HEAD: 061aa2911ac8c610740553be5a4152a59072e12d',
 	]) {
-		assert.ok(workflow.includes(invariant), `missing identity: ${invariant}`);
+		assert.ok(
+			workflow.includes(invariant),
+			`missing identity: ${invariant}`
+		);
 	}
 	assert.match(
 		build,
@@ -104,7 +107,10 @@ test('fresh publisher proves absence and exact Release Please identity before mu
 	]) {
 		const position = publisher.indexOf(guard);
 		assert.ok(position >= 0, `missing preflight guard: ${guard}`);
-		assert.ok(position < createRelease, `guard moved after mutation: ${guard}`);
+		assert.ok(
+			position < createRelease,
+			`guard moved after mutation: ${guard}`
+		);
 	}
 });
 
@@ -122,6 +128,9 @@ test('asset mutation is release-ID-bound and publication is read back exactly', 
 		'index("autorelease: tagged") != null and index("autorelease: pending") == null',
 	]) {
 		const position = publisher.indexOf(readback, upload);
-		assert.ok(position > upload, `missing post-publication readback: ${readback}`);
+		assert.ok(
+			position > upload,
+			`missing post-publication readback: ${readback}`
+		);
 	}
 });
