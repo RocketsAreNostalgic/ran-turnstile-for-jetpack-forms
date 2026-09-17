@@ -41,7 +41,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
           test "$(jq -er '."."' .release-please-manifest.json)" = "$VERSION"
           test "$(sed -n 's/^[[:space:]]*\*[[:space:]]*Version:[[:space:]]*\([^[:space:]]*\).*$/\1/p' ran-turnstile-for-jetpack-forms.php)" = "$VERSION"
-          test "$(jq -er '.enabled' wordpress-org/deployment.json)" = false
+          test "$(jq -r '.enabled' wordpress-org/deployment.json)" = false
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
@@ -220,7 +220,21 @@ jobs:
     runs-on: blacksmith-2vcpu-ubuntu-2404
     permissions:
       contents: read
+    env:
+      PLUGIN_CHECK_CORE_REF: WordPress/WordPress#7.0.3
+      PLUGIN_CHECK_SLUG: ran-turnstile-for-jetpack-forms
+      PLUGIN_CHECK_WP_ENV_VERSION: 11.13.0
     steps:
+      - name: Initialize Plugin Check evidence files
+        run: |
+          : > "${{ runner.temp }}/plugin-check-results-raw.txt"
+          : > "${{ runner.temp }}/plugin-check-results-filtered.txt"
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha }}
+
       - name: Download the exact rebuilt release assets
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -230,11 +244,96 @@ jobs:
       - name: Extract the rebuilt archive
         run: mkdir plugin-check-build && unzip -q "dist/ran-turnstile-for-jetpack-forms-${VERSION}.zip" -d plugin-check-build
 
-      - uses: wordpress/plugin-check-action@98a1788320d0add90df2d8183934ecccbc4e05d2 # v1
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          build-dir: ./plugin-check-build/ran-turnstile-for-jetpack-forms
-          wp-version: '7.0.3'
-          ignore-codes: PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent
+          node-version: '24'
+
+      - name: Install the pinned wp-env runtime
+        run: |
+          npm --global --no-fund --no-audit install "@wordpress/env@${PLUGIN_CHECK_WP_ENV_VERSION}"
+          test "$(npm --global list @wordpress/env --depth=0 --json | jq -er '.dependencies["@wordpress/env"].version')" = "$PLUGIN_CHECK_WP_ENV_VERSION"
+
+      - name: Configure WordPress 7.0.3 for Plugin Check
+        env:
+          PLUGIN_DIR: ${{ github.workspace }}/plugin-check-build/ran-turnstile-for-jetpack-forms
+        run: |
+          jq -n \
+            --arg core "$PLUGIN_CHECK_CORE_REF" \
+            --arg path "$PLUGIN_DIR" \
+            --arg slug "$PLUGIN_CHECK_SLUG" \
+            '{core: $core, port: 8880, testsEnvironment: false, mappings: {("wp-content/plugins/" + $slug): $path}}' > .wp-env.json
+          test "$(jq -er '.core' .wp-env.json)" = "$PLUGIN_CHECK_CORE_REF"
+
+      - name: Start the pinned Plugin Check environment
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if wp-env start --update && wp-env run cli wp cli info; then
+              exit 0
+            fi
+            if [[ "$attempt" == 3 ]]; then
+              exit 1
+            fi
+            wp-env destroy --force || true
+          done
+
+      - name: Run Plugin Check and enforce scoped Turnstile acceptance
+        timeout-minutes: 10
+        env:
+          RAW_RESULTS_FILE: ${{ runner.temp }}/plugin-check-results-raw.txt
+          FILTERED_RESULTS_FILE: ${{ runner.temp }}/plugin-check-results-filtered.txt
+          PLUGIN_SOURCE_ROOT: ${{ github.workspace }}/plugin-check-build/ran-turnstile-for-jetpack-forms
+        run: |
+          set -euo pipefail
+          wp-env run cli wp plugin install plugin-check --activate
+          dependencies="$(wp-env run cli wp plugin get "$PLUGIN_CHECK_SLUG" --field=requires_plugins | tr ',' ' ')"
+          if [[ -n "$dependencies" ]]; then
+            # WordPress owns these dependency slugs; word splitting is intentional.
+            # shellcheck disable=SC2086
+            wp-env run cli wp plugin install --activate $dependencies
+          fi
+          wp-env run cli wp plugin activate "$PLUGIN_CHECK_SLUG"
+
+          set +e
+          wp-env run cli wp plugin check "$PLUGIN_CHECK_SLUG" \
+            --format=json \
+            --require=./wp-content/plugins/plugin-check/cli.php > "$RAW_RESULTS_FILE"
+          plugin_check_status=$?
+          set -e
+
+          cat "$RAW_RESULTS_FILE"
+          if [[ "$plugin_check_status" -ne 0 && ! -s "$RAW_RESULTS_FILE" ]]; then
+            exit "$plugin_check_status"
+          fi
+
+          log_token="$(openssl rand -hex 32)"
+          printf '::stop-commands::%s\n' "$log_token"
+          filter_status=0
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 64 --memory 256m --cpus 1 \
+            --user "$(id -u):$(id -g)" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/.github/scripts/filter-plugin-check-results.mjs,dst=/filter.mjs,readonly" \
+            --mount "type=bind,src=$RAW_RESULTS_FILE,dst=/raw.txt,readonly" \
+            --mount "type=bind,src=$PLUGIN_SOURCE_ROOT,dst=/source,readonly" \
+            node:24-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e \
+            node /filter.mjs /raw.txt - /source > "$FILTERED_RESULTS_FILE" || filter_status=$?
+          printf '::%s::\n' "$log_token"
+          exit "$filter_status"
+
+      - name: Upload Plugin Check results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: v0-4-0-plugin-check-results-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/plugin-check-results-raw.txt
+            ${{ runner.temp }}/plugin-check-results-filtered.txt
+          if-no-files-found: error
+
+      - name: Destroy the pinned Plugin Check environment
+        if: always()
+        run: wp-env destroy --force
 
   publish:
     name: Publish exact missing v0.4.0 release
@@ -254,6 +353,7 @@ jobs:
       actions: read
       contents: write
       issues: write
+      pull-requests: read
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CURRENT_MAIN: ${{ github.event.workflow_run.head_sha }}
@@ -264,7 +364,7 @@ jobs:
           name: ran-turnstile-v0-4-0-reconciliation-${{ github.run_id }}
           path: dist
 
-      - name: Prove the exact historical release identity before mutation
+      - name: Prove exact historical identity and safe resumable state
         id: preflight
         run: |
           set -euo pipefail
@@ -292,16 +392,7 @@ jobs:
           test "$(jq -er '."."' <<< "$current_manifest")" = "$VERSION"
 
           labels="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${RELEASE_PR}" --jq '[.labels[].name]')"
-          jq -e 'index("autorelease: pending") != null and index("autorelease: tagged") == null' <<< "$labels" >/dev/null
-
-          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}" >/dev/null 2>&1; then
-            echo "::error::${TAG_NAME} already exists; refusing one-time reconciliation."
-            exit 1
-          fi
-          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}" >/dev/null 2>&1; then
-            echo "::error::GitHub Release ${TAG_NAME} already exists; refusing one-time reconciliation."
-            exit 1
-          fi
+          jq -e 'index("autorelease: pending") != null or index("autorelease: tagged") != null' <<< "$labels" >/dev/null
 
           archive="dist/ran-turnstile-for-jetpack-forms-${VERSION}.zip"
           checksum="${archive}.sha256"
@@ -319,58 +410,52 @@ jobs:
           (cd dist && sha256sum --check --strict "$(basename "$checksum")")
           unzip -tqq "$archive"
 
-          notes="$(jq -r '.body' <<< "$pr" | awk 'BEGIN { emit = 0 } /^## \[0\.4\.0\]/ { emit = 1 } emit && /^---$/ { exit } emit')"
-          test -n "$notes"
-          printf '%s\n' "$notes" > release-notes.md
+          tag_exists=false
+          if tag_ref="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}" 2>/dev/null)"; then
+            tag_exists=true
+            jq -e --arg commit "$SOURCE_COMMIT" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_ref" >/dev/null
+          fi
 
-      - name: Create the exact draft release and upload qualified assets
+          release_exists=false
+          if release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}" 2>/dev/null)"; then
+            release_exists=true
+            jq -e --arg commit "$SOURCE_COMMIT" --arg tag "$TAG_NAME" '.tag_name == $tag and .target_commitish == $commit and .prerelease == false' <<< "$release_json" >/dev/null
+            test "$tag_exists" = true
+
+            expected_names="$(
+              printf '%s\n' \
+                "ran-turnstile-for-jetpack-forms-${VERSION}.manifest.json" \
+                "ran-turnstile-for-jetpack-forms-${VERSION}.zip" \
+                "ran-turnstile-for-jetpack-forms-${VERSION}.zip.sha256" |
+                jq -Rsc 'split("\n") | map(select(length > 0)) | sort'
+            )"
+            jq -e --argjson expected "$expected_names" '([.assets[].name] - $expected) | length == 0' <<< "$release_json" >/dev/null
+            jq -e '([.assets[].name] | length) == ([.assets[].name] | unique | length)' <<< "$release_json" >/dev/null
+          fi
+
+          printf 'release-exists=%s\ntag-exists=%s\n' "$release_exists" "$tag_exists" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$(jq -r '.body' <<< "$pr" | awk 'BEGIN { emit = 0 } /^## \[0\.4\.0\]/ { emit = 1 } emit && /^---$/ { exit } emit')" > release-notes.md
+          test -s release-notes.md
+
+      - name: Create or resume the exact release and attach qualified assets
         id: release
+        env:
+          RELEASE_EXISTS: ${{ steps.preflight.outputs.release-exists }}
         run: |
           set -euo pipefail
-          gh release create "$TAG_NAME" \
-            --draft \
-            --target "$SOURCE_COMMIT" \
-            --title "$TAG_NAME" \
-            --notes-file release-notes.md \
-            --repo "$GITHUB_REPOSITORY"
+
+          if [[ "$RELEASE_EXISTS" != true ]]; then
+            gh release create "$TAG_NAME" \
+              --draft \
+              --target "$SOURCE_COMMIT" \
+              --title "$TAG_NAME" \
+              --notes-file release-notes.md \
+              --repo "$GITHUB_REPOSITORY"
+          fi
 
           release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}")"
-          jq -e --arg commit "$SOURCE_COMMIT" --arg tag "$TAG_NAME" '.tag_name == $tag and .target_commitish == $commit and .draft == true' <<< "$release_json" >/dev/null
+          jq -e --arg commit "$SOURCE_COMMIT" --arg tag "$TAG_NAME" '.tag_name == $tag and .target_commitish == $commit and .prerelease == false' <<< "$release_json" >/dev/null
           release_id="$(jq -er '.id' <<< "$release_json")"
-
-          for asset in \
-            "dist/ran-turnstile-for-jetpack-forms-${VERSION}.zip" \
-            "dist/ran-turnstile-for-jetpack-forms-${VERSION}.zip.sha256" \
-            "dist/ran-turnstile-for-jetpack-forms-${VERSION}.manifest.json"; do
-            asset_name="$(basename "$asset")"
-            curl --fail --silent --show-error \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H 'Accept: application/vnd.github+json' \
-              -H 'X-GitHub-Api-Version: 2026-03-10' \
-              -H 'Content-Type: application/octet-stream' \
-              --data-binary "@${asset}" \
-              "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets?name=${asset_name}" \
-              >/dev/null
-          done
-
-          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${release_id}" \
-            -F draft=false \
-            -f make_latest=true \
-            >/dev/null
-          echo "release_id=${release_id}" >> "$GITHUB_OUTPUT"
-
-      - name: Read back the exact publication and reconcile Release Please state
-        env:
-          RELEASE_ID: ${{ steps.release.outputs.release_id }}
-        run: |
-          set -euo pipefail
-          release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
-          jq -e \
-            --arg commit "$SOURCE_COMMIT" \
-            --arg tag "$TAG_NAME" \
-            --argjson release_id "$RELEASE_ID" \
-            '.id == $release_id and .tag_name == $tag and .target_commitish == $commit and .draft == false and .prerelease == false' \
-            <<< "$release_json" >/dev/null
 
           tag_ref="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}")"
           jq -e --arg commit "$SOURCE_COMMIT" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_ref" >/dev/null
@@ -382,8 +467,6 @@ jobs:
               "ran-turnstile-for-jetpack-forms-${VERSION}.zip.sha256" |
               jq -Rsc 'split("\n") | map(select(length > 0)) | sort'
           )"
-          test "$(jq -c '[.assets[].name] | sort' <<< "$release_json")" = "$expected_names"
-
           local_digests="$(
             for asset in \
               "dist/ran-turnstile-for-jetpack-forms-${VERSION}.manifest.json" \
@@ -393,12 +476,102 @@ jobs:
             done |
               jq -sc 'sort_by(.name)'
           )"
+          remote_names="$(jq -c '[.assets[].name] | sort' <<< "$release_json")"
           remote_digests="$(jq -c '[.assets[] | {name, digest}] | sort_by(.name)' <<< "$release_json")"
-          test "$remote_digests" = "$local_digests"
+          assets_exact=false
+          if [[ "$remote_names" == "$expected_names" && "$remote_digests" == "$local_digests" ]]; then
+            assets_exact=true
+          fi
 
-          jq -nc '{labels: ["autorelease: tagged"]}' |
-            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${RELEASE_PR}/labels" --input - >/dev/null
-          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/issues/${RELEASE_PR}/labels/autorelease%3A%20pending" >/dev/null
+          if [[ "$assets_exact" != true ]]; then
+            if [[ "$(jq -r '.immutable // false' <<< "$release_json")" == true ]]; then
+              echo '::error::Existing immutable release does not already contain the exact qualified assets.'
+              exit 1
+            fi
+
+            jq -e --argjson expected "$expected_names" '([.assets[].name] - $expected) | length == 0' <<< "$release_json" >/dev/null
+            jq -e '([.assets[].name] | length) == ([.assets[].name] | unique | length)' <<< "$release_json" >/dev/null
+
+            for asset in \
+              "dist/ran-turnstile-for-jetpack-forms-${VERSION}.zip" \
+              "dist/ran-turnstile-for-jetpack-forms-${VERSION}.zip.sha256" \
+              "dist/ran-turnstile-for-jetpack-forms-${VERSION}.manifest.json"; do
+              asset_name="$(basename "$asset")"
+              existing_asset_id="$(jq -r --arg name "$asset_name" '.assets[] | select(.name == $name) | .id' <<< "$release_json")"
+              if [[ -n "$existing_asset_id" ]]; then
+                gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${existing_asset_id}" >/dev/null
+              fi
+              curl --fail --silent --show-error \
+                -H "Authorization: Bearer ${GH_TOKEN}" \
+                -H 'Accept: application/vnd.github+json' \
+                -H 'X-GitHub-Api-Version: 2026-03-10' \
+                -H 'Content-Type: application/octet-stream' \
+                --data-binary "@${asset}" \
+                "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets?name=${asset_name}" \
+                >/dev/null
+            done
+          fi
+
+          release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}")"
+          if [[ "$(jq -r '.draft' <<< "$release_json")" == true ]]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${release_id}" \
+              -F draft=false \
+              -f make_latest=true \
+              >/dev/null
+          fi
+          echo "release_id=${release_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Read back exact publication and reconcile Release Please state
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.release_id }}
+        run: |
+          set -euo pipefail
+          expected_names="$(
+            printf '%s\n' \
+              "ran-turnstile-for-jetpack-forms-${VERSION}.manifest.json" \
+              "ran-turnstile-for-jetpack-forms-${VERSION}.zip" \
+              "ran-turnstile-for-jetpack-forms-${VERSION}.zip.sha256" |
+              jq -Rsc 'split("\n") | map(select(length > 0)) | sort'
+          )"
+          local_digests="$(
+            for asset in \
+              "dist/ran-turnstile-for-jetpack-forms-${VERSION}.manifest.json" \
+              "dist/ran-turnstile-for-jetpack-forms-${VERSION}.zip" \
+              "dist/ran-turnstile-for-jetpack-forms-${VERSION}.zip.sha256"; do
+              jq -nc --arg name "$(basename "$asset")" --arg digest "sha256:$(sha256sum "$asset" | awk '{print $1}')" '{name: $name, digest: $digest}'
+            done |
+              jq -sc 'sort_by(.name)'
+          )"
+
+          verified=false
+          for delay in 0 2 2 2 2; do
+            sleep "$delay"
+            release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+            tag_ref="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}")"
+
+            if jq -e \
+              --arg commit "$SOURCE_COMMIT" \
+              --arg tag "$TAG_NAME" \
+              --argjson release_id "$RELEASE_ID" \
+              '.id == $release_id and .tag_name == $tag and .target_commitish == $commit and .draft == false and .prerelease == false and .immutable == false' \
+              <<< "$release_json" >/dev/null \
+              && jq -e --arg commit "$SOURCE_COMMIT" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_ref" >/dev/null \
+              && [[ "$(jq -c '[.assets[].name] | sort' <<< "$release_json")" == "$expected_names" ]] \
+              && [[ "$(jq -c '[.assets[] | {name, digest}] | sort_by(.name)' <<< "$release_json")" == "$local_digests" ]]; then
+              verified=true
+              break
+            fi
+          done
+          test "$verified" = true
+
+          labels="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${RELEASE_PR}" --jq '[.labels[].name]')"
+          if ! jq -e 'index("autorelease: tagged") != null' <<< "$labels" >/dev/null; then
+            jq -nc '{labels: ["autorelease: tagged"]}' |
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${RELEASE_PR}/labels" --input - >/dev/null
+          fi
+          if jq -e 'index("autorelease: pending") != null' <<< "$labels" >/dev/null; then
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/issues/${RELEASE_PR}/labels/autorelease%3A%20pending" >/dev/null
+          fi
 
           labels_after="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${RELEASE_PR}" --jq '[.labels[].name]')"
           jq -e 'index("autorelease: tagged") != null and index("autorelease: pending") == null' <<< "$labels_after" >/dev/null
