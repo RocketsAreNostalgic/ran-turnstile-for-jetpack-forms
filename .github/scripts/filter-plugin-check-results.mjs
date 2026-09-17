@@ -152,8 +152,9 @@ function isAcceptedHistoricalTestedUpTo(file, finding) {
 	const { sourcePath } = resolveSourcePath(file);
 	const sourceLines = fs.readFileSync(sourcePath, 'utf8').split(/\r?\n/);
 	return (
-		sourceLines.includes(`Tested up to: ${historicalTestedUpTo.testedUpTo}`) &&
-		sourceLines.includes(`Stable tag: ${historicalTestedUpTo.stableTag}`)
+		sourceLines.includes(
+			`Tested up to: ${historicalTestedUpTo.testedUpTo}`
+		) && sourceLines.includes(`Stable tag: ${historicalTestedUpTo.stableTag}`)
 	);
 }
 
