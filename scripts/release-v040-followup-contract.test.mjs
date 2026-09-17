@@ -25,10 +25,7 @@ test('follow-up is one-time canonical workflow_run reconciliation', () => {
 	assert.match(workflow, /branches: \[main\]/);
 	assert.match(workflow, /permissions: \{\}/);
 	assert.match(workflow, /group: release-please-main/);
-	assert.match(
-		workflow,
-		/RAN_SOURCE_RUN: '35239281005'/
-	);
+	assert.match(workflow, /RAN_SOURCE_RUN: '35239281005'/);
 	assert.match(
 		workflow,
 		/RAN_SOURCE_HEAD: f34baa0da9360f61a20cd1b389187dedb7af2df4/
@@ -46,34 +43,22 @@ test('follow-up is one-time canonical workflow_run reconciliation', () => {
 });
 
 test('Plugin Check reuses the exact already compatibility-tested artifact', () => {
-	assert.match(pluginCheck, /permissions:\n\s+actions: read\n\s+contents: read/);
+	assert.match(
+		pluginCheck,
+		/permissions:\n\s+actions: read\n\s+contents: read/
+	);
 	assert.match(
 		pluginCheck,
 		/repos\/\$\{GITHUB_REPOSITORY\}\/actions\/runs\/\$\{RAN_SOURCE_RUN\}/
 	);
-	assert.match(
-		pluginCheck,
-		/Rebuild exact historical v0\.4\.0 source/
-	);
-	assert.match(
-		pluginCheck,
-		/Historical v0\.4\.0 \/ Plugin Check/
-	);
-	assert.match(
-		pluginCheck,
-		/name: \$\{\{ env\.RAN_ARTIFACT_NAME \}\}/
-	);
-	assert.match(
-		pluginCheck,
-		/run-id: \$\{\{ env\.RAN_SOURCE_RUN \}\}/
-	);
+	assert.match(pluginCheck, /Rebuild exact historical v0\.4\.0 source/);
+	assert.match(pluginCheck, /Historical v0\.4\.0 \/ Plugin Check/);
+	assert.match(pluginCheck, /name: \$\{\{ env\.RAN_ARTIFACT_NAME \}\}/);
+	assert.match(pluginCheck, /run-id: \$\{\{ env\.RAN_SOURCE_RUN \}\}/);
 });
 
 test('historical metadata exception is exact and the normal Turnstile filter still runs', () => {
-	assert.match(
-		historicalFilter,
-		/currentFile === 'readme\.txt'/
-	);
+	assert.match(historicalFilter, /currentFile === 'readme\.txt'/);
 	assert.match(
 		historicalFilter,
 		/finding\?\.code === 'outdated_tested_upto_header'/
@@ -89,10 +74,7 @@ test('historical metadata exception is exact and the normal Turnstile filter sti
 		pluginCheck,
 		/node \.github\/scripts\/filter-v040-historical-plugin-check\.mjs/
 	);
-	assert.match(
-		pluginCheck,
-		/node \/filter\.mjs \/raw\.txt - \/source/
-	);
+	assert.match(pluginCheck, /node \/filter\.mjs \/raw\.txt - \/source/);
 });
 
 test('publisher is source-free and mutates only the exact historical release identity', () => {
@@ -109,12 +91,18 @@ test('publisher is source-free and mutates only the exact historical release ide
 	assert.match(publisher, /pulls\/\$\{RAN_RELEASE_PR\}/);
 	assert.match(publisher, /git\/commits\/\$\{RAN_HISTORICAL_COMMIT\}/);
 	assert.match(publisher, /git\/commits\/\$\{RAN_RELEASE_HEAD\}/);
-	assert.match(publisher, /v0\.4\.0 has a partial or duplicate tag\/release state/);
+	assert.match(
+		publisher,
+		/v0\.4\.0 has a partial or duplicate tag\/release state/
+	);
 	assert.match(
 		publisher,
 		/https:\/\/uploads\.github\.com\/repos\/\$\{GITHUB_REPOSITORY\}\/releases\/\$\{RELEASE_ID\}\/assets\?name=\$\{asset_name\}/
 	);
-	assert.match(publisher, /\[\.assets\[\] \| \{name,digest\}\] \| sort_by\(\.name\)/);
+	assert.match(
+		publisher,
+		/\[\.assets\[\] \| \{name,digest\}\] \| sort_by\(\.name\)/
+	);
 	assert.match(
 		publisher,
 		/Reconcile Release Please PR labels only after exact publication readback/
