@@ -95,6 +95,7 @@ test('manual recovery keeps exact guards before mutation and exact readback afte
 		'test "$(resolve_tag_commit "$tag_ref_before")" = "$commit"',
 		'release_before="$(gh api',
 		'.tag_name == $tag and .target_commitish == $commit and .draft == false and .immutable == false',
+		'([.assets[].name] | length) == ([.assets[].name] | unique | length)',
 		'([.assets[].name] - $expected) | length == 0',
 		'release_id="$(jq -er',
 		'.archive == $archive and .commit == $commit and .sha256 == $sha256 and .tag == $tag and .version == $version',
