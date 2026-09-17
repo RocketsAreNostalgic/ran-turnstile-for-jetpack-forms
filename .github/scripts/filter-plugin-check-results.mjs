@@ -150,16 +150,10 @@ function isAcceptedHistoricalTestedUpTo(file, finding) {
 	}
 
 	const { sourcePath } = resolveSourcePath(file);
-	const source = fs.readFileSync(sourcePath, 'utf8');
+	const sourceLines = fs.readFileSync(sourcePath, 'utf8').split(/\r?\n/);
 	return (
-		new RegExp(
-			`^Tested up to: ${historicalTestedUpTo.testedUpTo.replace('.', '\\.')}$`,
-			'm'
-		).test(source) &&
-		new RegExp(
-			`^Stable tag: ${historicalTestedUpTo.stableTag.replace('.', '\\.')}$`,
-			'm'
-		).test(source)
+		sourceLines.includes(`Tested up to: ${historicalTestedUpTo.testedUpTo}`) &&
+		sourceLines.includes(`Stable tag: ${historicalTestedUpTo.stableTag}`)
 	);
 }
 
