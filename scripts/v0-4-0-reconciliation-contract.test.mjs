@@ -136,7 +136,10 @@ test('partial publication is safely resumable without accepting unrelated state'
 		'Existing immutable release does not already contain the exact qualified assets.',
 		'releases/assets/${existing_asset_id}',
 	]) {
-		assert.ok(publisher.includes(invariant), `missing resumability guard: ${invariant}`);
+		assert.ok(
+			publisher.includes(invariant),
+			`missing resumability guard: ${invariant}`
+		);
 	}
 });
 
