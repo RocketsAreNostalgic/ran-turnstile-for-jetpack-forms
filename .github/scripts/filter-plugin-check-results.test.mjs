@@ -27,6 +27,36 @@ function finding(code = offloadingCode, overrides = {}) {
 	};
 }
 
+function historicalV040Finding(overrides = {}) {
+	return {
+		line: 0,
+		column: 0,
+		type: 'ERROR',
+		code: 'outdated_tested_upto_header',
+		message:
+			'Tested up to: 7.0 < 7.1. The "Tested up to" value in your plugin is not set to the current version of WordPress.',
+		docs: 'https://developer.wordpress.org/plugins/wordpress-org/how-your-readme-txt-works/#readme-header-information',
+		...overrides,
+	};
+}
+
+function historicalV040Readme(overrides = {}) {
+	return {
+		file: 'readme.txt',
+		sourceLines: [
+			'=== RAN Turnstile for Jetpack Forms ===',
+			'Contributors: bnjmnrsh',
+			'Tags: cloudflare, turnstile, jetpack, forms, spam',
+			'Requires at least: 6.5',
+			'Tested up to: 7.0',
+			'Requires PHP: 8.0',
+			'Stable tag: 0.4.0',
+		],
+		findings: [historicalV040Finding()],
+		...overrides,
+	};
+}
+
 function expectedFixture() {
 	return [
 		{
@@ -122,6 +152,58 @@ test('accepts each of the six expected findings exactly once', () => {
 			?.length,
 		6
 	);
+});
+
+test('accepts exact historical v0.4.0 Tested up to drift while preserving the six dependency findings', () => {
+	const result = runFilter({
+		sections: [historicalV040Readme(), ...expectedFixture()],
+	});
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(result.output.match(/"type":"WARNING"/g)?.length, 7);
+	assert.match(result.output, /Accepted historical v0\.4\.0 metadata drift/);
+	assert.match(result.output, /"historical_line":0/);
+	assert.match(result.output, /"historical_column":0/);
+	assert.match(result.stderr, /Accepted one historical v0\.4\.0 Tested up to/);
+	assert.equal(
+		result.output.match(/Accepted Cloudflare Turnstile dependency/g)
+			?.length,
+		6
+	);
+});
+
+test('rejects the historical finding when the source is not exact v0.4.0 metadata', () => {
+	const section = historicalV040Readme();
+	section.sourceLines[4] = 'Tested up to: 7.1';
+	const result = runFilter({ sections: [section, ...expectedFixture()] });
+
+	assert.notEqual(result.status, 0);
+	assert.equal(result.output, '');
+	assert.match(result.stderr, /Invalid Plugin Check finding for readme\.txt/);
+});
+
+test('rejects a different historical WordPress freshness finding', () => {
+	const section = historicalV040Readme({
+		findings: [
+			historicalV040Finding({
+				message: 'Tested up to: 7.0 < 7.2. Future drift.',
+			}),
+		],
+	});
+	const result = runFilter({ sections: [section, ...expectedFixture()] });
+
+	assert.notEqual(result.status, 0);
+	assert.equal(result.output, '');
+	assert.match(result.stderr, /Invalid Plugin Check finding for readme\.txt/);
+});
+
+test('rejects duplicate historical v0.4.0 metadata findings', () => {
+	const exact = historicalV040Finding();
+	const section = historicalV040Readme({ findings: [exact, { ...exact }] });
+	const result = runFilter({ sections: [section, ...expectedFixture()] });
+
+	assertGateFailsWithEvidence(result);
+	assert.match(result.stderr, /metadata drift at most once but found 2/);
 });
 
 test('writes only filtered evidence to stdout', () => {
