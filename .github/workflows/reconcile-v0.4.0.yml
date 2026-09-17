@@ -50,6 +50,19 @@ jobs:
           node-version-file: .node-version
 
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        id: php
+        continue-on-error: true
+        timeout-minutes: 3
+        with:
+          php-version: '8.5'
+          extensions: zip
+          tools: composer:v2, wp-cli
+          coverage: none
+
+      - name: Retry the bounded PHP setup once
+        if: steps.php.outcome == 'failure'
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        timeout-minutes: 3
         with:
           php-version: '8.5'
           extensions: zip
@@ -141,6 +154,19 @@ jobs:
           test "$(git rev-parse 'HEAD^{tree}')" = "$RAN_RELEASE_TREE"
 
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        id: php
+        continue-on-error: true
+        timeout-minutes: 3
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          extensions: mysqli, zip
+          tools: composer:v2, wp-cli
+
+      - name: Retry the bounded PHP setup once
+        if: steps.php.outcome == 'failure'
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        timeout-minutes: 3
         with:
           php-version: ${{ matrix.php }}
           coverage: none
@@ -335,7 +361,7 @@ jobs:
           name: ran-turnstile-v0.4.0-reconciliation-${{ github.run_id }}
           path: dist
 
-      - name: Prove PR, commit, tree, manifest, and absent publication state
+      - name: Prove PR, commit, tree, manifest, and publication state
         id: identity
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -359,8 +385,6 @@ jobs:
              and .head.repo.full_name == $repository
              and .user.login == "github-actions[bot]"' \
             <<< "$release_pr" >/dev/null
-          labels="$(jq -c '[.labels[].name]' <<< "$release_pr")"
-          jq -e 'index("autorelease: pending") != null and index("autorelease: tagged") == null' <<< "$labels" >/dev/null
 
           test "$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${RAN_HISTORICAL_COMMIT}" --jq '.tree.sha')" = "$RAN_RELEASE_TREE"
           test "$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${RAN_RELEASE_HEAD}" --jq '.tree.sha')" = "$RAN_RELEASE_TREE"
@@ -383,20 +407,66 @@ jobs:
           (cd dist && sha256sum --check --strict "$(basename "$checksum")")
           unzip -tqq "$archive"
 
+          expected_names="$(
+            printf '%s\n' \
+              "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.manifest.json" \
+              "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip" \
+              "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip.sha256" \
+              | jq -Rsc 'split("\n") | map(select(length > 0)) | sort'
+          )"
+
           release_pages="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100")"
           release_match="$(jq -c --arg tag "$RAN_RELEASE_TAG" '[add | .[] | select(.tag_name == $tag)]' <<< "$release_pages")"
           tag_pages="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/git/refs/tags?per_page=100")"
           tag_match="$(jq -c --arg ref "refs/tags/${RAN_RELEASE_TAG}" '[add | .[] | select(.ref == $ref)]' <<< "$tag_pages")"
           release_count="$(jq 'length' <<< "$release_match")"
           tag_count="$(jq 'length' <<< "$tag_match")"
+
           if [[ "$release_count" -eq 0 && "$tag_count" -eq 0 ]]; then
-            echo 'state=absent' >> "$GITHUB_OUTPUT"
+            state=absent
           elif [[ "$release_count" -eq 1 && "$tag_count" -eq 1 ]]; then
-            echo 'state=existing' >> "$GITHUB_OUTPUT"
+            release_json="$(jq -cer '.[0]' <<< "$release_match")"
+            tag_json="$(jq -cer '.[0]' <<< "$tag_match")"
+            jq -e \
+              --arg tag "$RAN_RELEASE_TAG" \
+              --arg commit "$RAN_HISTORICAL_COMMIT" \
+              '.tag_name == $tag and .target_commitish == $commit and .prerelease == false' \
+              <<< "$release_json" >/dev/null
+            jq -e --arg commit "$RAN_HISTORICAL_COMMIT" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_json" >/dev/null
+
+            asset_names="$(jq -c '[.assets[].name]' <<< "$release_json")"
+            test "$(jq 'length' <<< "$asset_names")" = "$(jq 'unique | length' <<< "$asset_names")"
+            test "$(jq -c --argjson expected "$expected_names" '[.[] | select(. as $name | $expected | index($name) | not)]' <<< "$asset_names")" = '[]'
+
+            release_id="$(jq -er '.id' <<< "$release_json")"
+            echo "release-id=$release_id" >> "$GITHUB_OUTPUT"
+            if [[ "$(jq -er '.draft' <<< "$release_json")" == true ]]; then
+              state=draft
+            else
+              state=published
+            fi
           else
             echo "::error::v0.4.0 has a partial tag/release state."
             exit 1
           fi
+
+          labels="$(jq -c '[.labels[].name]' <<< "$release_pr")"
+          pending="$(jq -r 'index("autorelease: pending") != null' <<< "$labels")"
+          tagged="$(jq -r 'index("autorelease: tagged") != null' <<< "$labels")"
+          case "$state" in
+            absent|draft)
+              test "$pending" = true
+              test "$tagged" = false
+              ;;
+            published)
+              if [[ "$pending" != true && "$tagged" != true ]]; then
+                echo "::error::Published v0.4.0 PR has neither Release Please lifecycle label."
+                exit 1
+              fi
+              ;;
+          esac
+
+          echo "state=$state" >> "$GITHUB_OUTPUT"
 
       - name: Create exact draft release when publication is absent
         id: create
@@ -419,20 +489,38 @@ jobs:
           test "$(jq -er '.draft' <<< "$release_json")" = true
           echo "release-id=$release_id" >> "$GITHUB_OUTPUT"
 
-      - name: Attach exact qualified assets by immutable release ID
-        if: steps.identity.outputs.state == 'absent'
+      - name: Synchronize exact qualified assets into the verified draft
+        if: steps.identity.outputs.state == 'absent' || steps.identity.outputs.state == 'draft'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_ID: ${{ steps.create.outputs.release-id }}
+          RELEASE_ID: ${{ steps.create.outputs.release-id || steps.identity.outputs.release-id }}
         shell: bash
         run: |
           set -euo pipefail
+          test -n "$RELEASE_ID"
           for asset in \
             "dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip" \
             "dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip.sha256" \
             "dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.manifest.json"
           do
             asset_name="$(basename "$asset")"
+            local_digest="sha256:$(sha256sum "$asset" | awk '{print $1}')"
+            release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+            matches="$(jq -c --arg name "$asset_name" '[.assets[] | select(.name == $name)]' <<< "$release_json")"
+            match_count="$(jq 'length' <<< "$matches")"
+            if [[ "$match_count" -gt 1 ]]; then
+              echo "::error::Duplicate draft asset name: ${asset_name}"
+              exit 1
+            fi
+            if [[ "$match_count" -eq 1 ]]; then
+              remote_digest="$(jq -er '.[0].digest' <<< "$matches")"
+              if [[ "$remote_digest" == "$local_digest" ]]; then
+                continue
+              fi
+              existing_asset_id="$(jq -er '.[0].id' <<< "$matches")"
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${existing_asset_id}" >/dev/null
+            fi
+
             case "$asset_name" in
               *.zip) content_type='application/zip' ;;
               *.json) content_type='application/json' ;;
@@ -448,12 +536,52 @@ jobs:
               >/dev/null
           done
 
-      - name: Publish exact reconciled release
-        if: steps.identity.outputs.state == 'absent'
+      - name: Verify the complete exact draft before publication
+        if: steps.identity.outputs.state == 'absent' || steps.identity.outputs.state == 'draft'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_ID: ${{ steps.create.outputs.release-id }}
+          RELEASE_ID: ${{ steps.create.outputs.release-id || steps.identity.outputs.release-id }}
+        shell: bash
         run: |
+          set -euo pipefail
+          release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+          jq -e \
+            --arg tag "$RAN_RELEASE_TAG" \
+            --arg commit "$RAN_HISTORICAL_COMMIT" \
+            '.tag_name == $tag and .target_commitish == $commit and .draft == true and .prerelease == false' \
+            <<< "$release_json" >/dev/null
+
+          expected_names="$(
+            printf '%s\n' \
+              "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.manifest.json" \
+              "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip" \
+              "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip.sha256" \
+              | jq -Rsc 'split("\n") | map(select(length > 0)) | sort'
+          )"
+          test "$(jq -c '[.assets[].name] | sort' <<< "$release_json")" = "$expected_names"
+
+          local_digests="$(
+            for asset in \
+              "dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.manifest.json" \
+              "dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip" \
+              "dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip.sha256"
+            do
+              jq -nc \
+                --arg name "$(basename "$asset")" \
+                --arg digest "sha256:$(sha256sum "$asset" | awk '{print $1}')" \
+                '{name: $name, digest: $digest}'
+            done | jq -sc 'sort_by(.name)'
+          )"
+          remote_digests="$(jq -c '[.assets[] | {name, digest}] | sort_by(.name)' <<< "$release_json")"
+          test "$remote_digests" = "$local_digests"
+
+      - name: Publish exact reconciled release
+        if: steps.identity.outputs.state == 'absent' || steps.identity.outputs.state == 'draft'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.create.outputs.release-id || steps.identity.outputs.release-id }}
+        run: |
+          set -euo pipefail
           jq -nc '{draft: false, prerelease: false, make_latest: "true"}' \
             | gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --input - >/dev/null
 
