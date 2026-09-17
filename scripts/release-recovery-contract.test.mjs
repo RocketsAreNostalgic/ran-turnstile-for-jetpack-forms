@@ -57,6 +57,10 @@ const reconciliationRebuild = reconciliation.slice(
 	reconciliationRebuildStart,
 	reconciliationCompatibilityStart
 );
+const reconciliationCompatibility = reconciliation.slice(
+	reconciliationCompatibilityStart,
+	reconciliationPluginCheckStart
+);
 const reconciliationPluginCheck = reconciliation.slice(
 	reconciliationPluginCheckStart,
 	reconciliationPublishStart
@@ -234,6 +238,19 @@ test('one-time v0.4.0 rebuild executes historical source without mutation author
 	);
 });
 
+test('one-time v0.4.0 PHP provisioning is bounded and retried once', () => {
+	for (const lane of [reconciliationRebuild, reconciliationCompatibility]) {
+		assert.match(
+			lane,
+			/id: php\n\s+continue-on-error: true\n\s+timeout-minutes: 3/
+		);
+		assert.match(
+			lane,
+			/name: Retry the bounded PHP setup once\n\s+if: steps\.php\.outcome == 'failure'\n\s+uses: shivammathur\/setup-php@f3e473d116dcccaddc5834248c87452386958240[^\n]*\n\s+timeout-minutes: 3/
+		);
+	}
+});
+
 test('one-time v0.4.0 qualification reruns the fixed Plugin Check environment', () => {
 	assert.match(
 		reconciliationPluginCheck,
@@ -310,4 +327,35 @@ test('one-time v0.4.0 publisher is source-free and performs exact release-ID-bou
 		'Reconcile Release Please PR labels only after exact publication readback'
 	);
 	assert.ok(labels > upload, 'Release Please labels must be reconciled last');
+});
+
+test('one-time v0.4.0 publisher resumes exact drafts and partial label cleanup safely', () => {
+	assert.match(
+		reconciliationPublisher,
+		/if \[\[ "\$\(jq -er '\.draft' <<< "\$release_json"\)" == true \]\]; then\n\s+state=draft\n\s+else\n\s+state=published/
+	);
+	assert.match(
+		reconciliationPublisher,
+		/echo "release-id=\$release_id" >> "\$GITHUB_OUTPUT"/
+	);
+	assert.match(
+		reconciliationPublisher,
+		/if: steps\.identity\.outputs\.state == 'absent' \|\| steps\.identity\.outputs\.state == 'draft'/
+	);
+	assert.match(
+		reconciliationPublisher,
+		/remote_digest="\$\(jq -er '\.\[0\]\.digest' <<< "\$matches"\)"/
+	);
+	assert.match(
+		reconciliationPublisher,
+		/releases\/assets\/\$\{existing_asset_id\}/
+	);
+	assert.match(
+		reconciliationPublisher,
+		/name: Verify the complete exact draft before publication/
+	);
+	assert.match(
+		reconciliationPublisher,
+		/if \[\[ "\$pending" != true && "\$tagged" != true \]\]; then/
+	);
 });
