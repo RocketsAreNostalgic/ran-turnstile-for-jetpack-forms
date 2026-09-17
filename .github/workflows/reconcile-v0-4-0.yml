@@ -9,7 +9,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: reconcile-v0-4-0-publication
+  group: release-please-main
   cancel-in-progress: false
 
 env:
