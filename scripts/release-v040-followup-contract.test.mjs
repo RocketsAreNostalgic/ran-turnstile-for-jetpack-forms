@@ -58,7 +58,14 @@ test('Plugin Check reuses the exact already compatibility-tested artifact', () =
 });
 
 test('historical metadata exception is exact and the normal Turnstile filter still runs', () => {
-	assert.match(historicalFilter, /currentFile === 'readme\.txt'/);
+	assert.match(
+		historicalFilter,
+		/const normalizedFile = currentFile\.replaceAll\('\\\\', '\/'\)/
+	);
+	assert.match(
+		historicalFilter,
+		/normalizedFile === 'readme\.txt' \|\| normalizedFile\.endsWith\('\/readme\.txt'\)/
+	);
 	assert.match(
 		historicalFilter,
 		/finding\?\.code === 'outdated_tested_upto_header'/
