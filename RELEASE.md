@@ -54,7 +54,7 @@ enabled.
 
 Manual recovery is admitted from protected `main`. That checked-in ref guard
 prevents accidental recovery from another selected dispatch ref but is
-security-in-depth rather than independent authorization against a workflow
+defence-in-depth rather than independent authorization against a workflow
 author. Organisation-level workflow execution authority is tracked separately
 under `RocketsAreNostalgic/.github#24`.
 
