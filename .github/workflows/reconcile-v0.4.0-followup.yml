@@ -1,0 +1,396 @@
+name: Complete v0.4.0 reconciliation
+
+on:
+  workflow_run:
+    workflows: [Quality]
+    types: [completed]
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: release-please-main
+  cancel-in-progress: false
+
+env:
+  RAN_SOURCE_RUN: '35239281005'
+  RAN_SOURCE_HEAD: f34baa0da9360f61a20cd1b389187dedb7af2df4
+  RAN_HISTORICAL_COMMIT: 89e9ef33dda3356c644ad094abafb1ac2faf63e0
+  RAN_RELEASE_HEAD: 061aa2911ac8c610740553be5a4152a59072e12d
+  RAN_RELEASE_TREE: 53bb06653e0f504e4b4547eb4d939de9a8083eba
+  RAN_RELEASE_PR: '8'
+  RAN_RELEASE_TAG: v0.4.0
+  RAN_RELEASE_VERSION: 0.4.0
+  RAN_ARTIFACT_NAME: ran-turnstile-v0.4.0-reconciliation-35239281005
+
+jobs:
+  plugin-check:
+    name: Requalify historical v0.4.0 Plugin Check
+    if: >-
+      ${{ github.event.workflow_run.event == 'push'
+          && github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.head_branch == 'main'
+          && github.event.workflow_run.head_repository.full_name == github.repository
+          && github.event.workflow_run.path == '.github/workflows/quality.yml' }}
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PLUGIN_CHECK_CORE_REF: WordPress/WordPress#7.0.3
+      PLUGIN_CHECK_SLUG: ran-turnstile-for-jetpack-forms
+      PLUGIN_CHECK_WP_ENV_VERSION: 11.13.0
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Verify exact trusted tooling and source-run evidence
+        shell: bash
+        env:
+          RAN_TRIGGER_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RAN_TRIGGER_SHA"
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RAN_SOURCE_RUN}")"
+          jq -e \
+            --argjson id "$RAN_SOURCE_RUN" \
+            --arg head "$RAN_SOURCE_HEAD" \
+            '.id == $id
+             and .name == "Reconcile v0.4.0"
+             and .path == ".github/workflows/reconcile-v0.4.0.yml"
+             and .head_sha == $head
+             and .event == "workflow_run"
+             and .status == "completed"
+             and .conclusion == "failure"' \
+            <<< "$run_json" >/dev/null
+
+          jobs="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/actions/runs/${RAN_SOURCE_RUN}/jobs?per_page=100" | jq -c 'add | .jobs')"
+          test "$(jq '[.[] | select(.name == "Rebuild exact historical v0.4.0 source" and .conclusion == "success")] | length' <<< "$jobs")" = 1
+          test "$(jq '[.[] | select(.name | startswith("Historical v0.4.0 / PHP ")) | select(.conclusion == "success")] | length' <<< "$jobs")" = 2
+          test "$(jq '[.[] | select(.name == "Historical v0.4.0 / Plugin Check" and .conclusion == "failure")] | length' <<< "$jobs")" = 1
+          test "$(jq '[.[] | select(.name == "Publish and read back missing v0.4.0" and .conclusion == "skipped")] | length' <<< "$jobs")" = 1
+
+      - name: Download the exact rebuilt and compatibility-tested v0.4.0 artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ env.RAN_ARTIFACT_NAME }}
+          path: dist
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.RAN_SOURCE_RUN }}
+
+      - name: Verify exact historical artifact identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip"
+          checksum="${archive}.sha256"
+          manifest="dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.manifest.json"
+          archive_sha256="$(sha256sum "$archive" | awk '{print $1}')"
+          jq -e \
+            --arg archive "$(basename "$archive")" \
+            --arg commit "$RAN_HISTORICAL_COMMIT" \
+            --arg sha256 "$archive_sha256" \
+            --arg tag "$RAN_RELEASE_TAG" \
+            --arg version "$RAN_RELEASE_VERSION" \
+            '.archive == $archive and .commit == $commit and .sha256 == $sha256 and .tag == $tag and .version == $version' \
+            "$manifest" >/dev/null
+          printf '%s  %s\n' "$archive_sha256" "$(basename "$archive")" | cmp -s - "$checksum"
+          (cd dist && sha256sum --check --strict "$(basename "$checksum")")
+          unzip -tqq "$archive"
+
+      - name: Extract historical release archive
+        run: mkdir plugin-check-build && unzip -q "dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip" -d plugin-check-build
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '24'
+
+      - name: Install pinned wp-env runtime
+        run: |
+          npm --global --no-fund --no-audit install "@wordpress/env@${PLUGIN_CHECK_WP_ENV_VERSION}"
+          test "$(npm --global list @wordpress/env --depth=0 --json | jq -er '.dependencies["@wordpress/env"].version')" = "$PLUGIN_CHECK_WP_ENV_VERSION"
+
+      - name: Configure pinned WordPress for Plugin Check
+        env:
+          PLUGIN_DIR: ${{ github.workspace }}/plugin-check-build/ran-turnstile-for-jetpack-forms
+        run: |
+          jq -n \
+            --arg core "$PLUGIN_CHECK_CORE_REF" \
+            --arg path "$PLUGIN_DIR" \
+            --arg slug "$PLUGIN_CHECK_SLUG" \
+            '{core: $core, port: 8880, testsEnvironment: false, mappings: {("wp-content/plugins/" + $slug): $path}}' > .wp-env.json
+          test "$(jq -er '.core' .wp-env.json)" = "$PLUGIN_CHECK_CORE_REF"
+
+      - name: Start pinned Plugin Check environment
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if wp-env start --update && wp-env run cli wp cli info; then
+              exit 0
+            fi
+            if [[ "$attempt" == 3 ]]; then
+              exit 1
+            fi
+            wp-env destroy --force || true
+          done
+
+      - name: Run Plugin Check with the single bounded historical metadata exception
+        timeout-minutes: 10
+        env:
+          RAW_RESULTS_FILE: ${{ runner.temp }}/plugin-check-results-raw.txt
+          HISTORICAL_RESULTS_FILE: ${{ runner.temp }}/plugin-check-results-historical.txt
+          FILTERED_RESULTS_FILE: ${{ runner.temp }}/plugin-check-results-filtered.txt
+          PLUGIN_SOURCE_ROOT: ${{ github.workspace }}/plugin-check-build/ran-turnstile-for-jetpack-forms
+        run: |
+          set -euo pipefail
+          : > "$RAW_RESULTS_FILE"
+          : > "$HISTORICAL_RESULTS_FILE"
+          : > "$FILTERED_RESULTS_FILE"
+          wp-env run cli wp plugin install plugin-check --activate
+          dependencies="$(wp-env run cli wp plugin get "$PLUGIN_CHECK_SLUG" --field=requires_plugins | tr ',' ' ')"
+          if [[ -n "$dependencies" ]]; then
+            # WordPress owns these dependency slugs; word splitting is intentional.
+            # shellcheck disable=SC2086
+            wp-env run cli wp plugin install --activate $dependencies
+          fi
+          wp-env run cli wp plugin activate "$PLUGIN_CHECK_SLUG"
+
+          set +e
+          wp-env run cli wp plugin check "$PLUGIN_CHECK_SLUG" \
+            --format=json \
+            --require=./wp-content/plugins/plugin-check/cli.php > "$RAW_RESULTS_FILE"
+          plugin_check_status=$?
+          set -e
+          cat "$RAW_RESULTS_FILE"
+          if [[ "$plugin_check_status" -ne 0 && ! -s "$RAW_RESULTS_FILE" ]]; then
+            exit "$plugin_check_status"
+          fi
+
+          node .github/scripts/filter-v040-historical-plugin-check.mjs \
+            "$RAW_RESULTS_FILE" "$HISTORICAL_RESULTS_FILE"
+
+          log_token="$(openssl rand -hex 32)"
+          printf '::stop-commands::%s\n' "$log_token"
+          filter_status=0
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 64 --memory 256m --cpus 1 \
+            --user "$(id -u):$(id -g)" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/.github/scripts/filter-plugin-check-results.mjs,dst=/filter.mjs,readonly" \
+            --mount "type=bind,src=$HISTORICAL_RESULTS_FILE,dst=/raw.txt,readonly" \
+            --mount "type=bind,src=$PLUGIN_SOURCE_ROOT,dst=/source,readonly" \
+            node:24-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e \
+            node /filter.mjs /raw.txt - /source > "$FILTERED_RESULTS_FILE" || filter_status=$?
+          printf '::%s::\n' "$log_token"
+          cat "$FILTERED_RESULTS_FILE"
+          exit "$filter_status"
+
+      - name: Stop Plugin Check environment
+        if: always()
+        run: wp-env destroy --force || true
+
+  publish:
+    name: Publish and read back v0.4.0
+    needs: plugin-check
+    if: >-
+      ${{ needs.plugin-check.result == 'success'
+          && github.event.workflow_run.event == 'push'
+          && github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.head_branch == 'main'
+          && github.event.workflow_run.head_repository.full_name == github.repository
+          && github.event.workflow_run.path == '.github/workflows/quality.yml' }}
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RAN_TRIGGER_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Download the exact rebuilt and compatibility-tested v0.4.0 artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ env.RAN_ARTIFACT_NAME }}
+          path: dist
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.RAN_SOURCE_RUN }}
+
+      - name: Prove exact release identity and create or resume the draft
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          live_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          test "$live_main" = "$RAN_TRIGGER_SHA"
+
+          source_run="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RAN_SOURCE_RUN}")"
+          jq -e --argjson id "$RAN_SOURCE_RUN" --arg head "$RAN_SOURCE_HEAD" \
+            '.id == $id and .head_sha == $head and .path == ".github/workflows/reconcile-v0.4.0.yml" and .conclusion == "failure"' \
+            <<< "$source_run" >/dev/null
+
+          release_pr="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${RAN_RELEASE_PR}")"
+          jq -e \
+            --arg merge "$RAN_HISTORICAL_COMMIT" \
+            --arg head "$RAN_RELEASE_HEAD" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            '.merged_at != null
+             and .base.ref == "main"
+             and .head.sha == $head
+             and .merge_commit_sha == $merge
+             and .head.ref == "release-please--branches--main--components--ran-turnstile-for-jetpack-forms"
+             and .head.repo.full_name == $repository
+             and .user.login == "github-actions[bot]"' \
+            <<< "$release_pr" >/dev/null
+
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${RAN_HISTORICAL_COMMIT}" --jq '.tree.sha')" = "$RAN_RELEASE_TREE"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${RAN_RELEASE_HEAD}" --jq '.tree.sha')" = "$RAN_RELEASE_TREE"
+          manifest_version="$(gh api "repos/${GITHUB_REPOSITORY}/contents/.release-please-manifest.json?ref=${RAN_TRIGGER_SHA}" --jq '.content' | tr -d '\n' | base64 -d | jq -er '."."')"
+          test "$manifest_version" = "$RAN_RELEASE_VERSION"
+
+          archive="dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip"
+          checksum="${archive}.sha256"
+          manifest="dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.manifest.json"
+          archive_sha256="$(sha256sum "$archive" | awk '{print $1}')"
+          jq -e \
+            --arg archive "$(basename "$archive")" \
+            --arg commit "$RAN_HISTORICAL_COMMIT" \
+            --arg sha256 "$archive_sha256" \
+            --arg tag "$RAN_RELEASE_TAG" \
+            --arg version "$RAN_RELEASE_VERSION" \
+            '.archive == $archive and .commit == $commit and .sha256 == $sha256 and .tag == $tag and .version == $version' \
+            "$manifest" >/dev/null
+          printf '%s  %s\n' "$archive_sha256" "$(basename "$archive")" | cmp -s - "$checksum"
+          (cd dist && sha256sum --check --strict "$(basename "$checksum")")
+          unzip -tqq "$archive"
+
+          releases="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" | jq -c 'add')"
+          release_matches="$(jq -c --arg tag "$RAN_RELEASE_TAG" '[.[] | select(.tag_name == $tag)]' <<< "$releases")"
+          release_count="$(jq 'length' <<< "$release_matches")"
+
+          tags="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/git/refs/tags?per_page=100" | jq -c 'add')"
+          tag_matches="$(jq -c --arg ref "refs/tags/${RAN_RELEASE_TAG}" '[.[] | select(.ref == $ref)]' <<< "$tags")"
+          tag_count="$(jq 'length' <<< "$tag_matches")"
+
+          if [[ "$release_count" -eq 0 && "$tag_count" -eq 0 ]]; then
+            created="$(jq -nc \
+              --arg tag "$RAN_RELEASE_TAG" \
+              --arg commit "$RAN_HISTORICAL_COMMIT" \
+              '{tag_name:$tag,target_commitish:$commit,name:$tag,draft:true,prerelease:false,generate_release_notes:true}' \
+              | gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" --input -)"
+            release_id="$(jq -er '.id' <<< "$created")"
+          elif [[ "$release_count" -eq 1 && "$tag_count" -eq 1 ]]; then
+            existing="$(jq -cer '.[0]' <<< "$release_matches")"
+            release_id="$(jq -er '.id' <<< "$existing")"
+            jq -e --arg tag "$RAN_RELEASE_TAG" --arg commit "$RAN_HISTORICAL_COMMIT" \
+              '.tag_name == $tag and .target_commitish == $commit and .prerelease == false' \
+              <<< "$existing" >/dev/null
+            tag_json="$(jq -cer '.[0]' <<< "$tag_matches")"
+            test "$(jq -er '.object.type' <<< "$tag_json")" = commit
+            test "$(jq -er '.object.sha' <<< "$tag_json")" = "$RAN_HISTORICAL_COMMIT"
+          else
+            echo '::error::v0.4.0 has a partial or duplicate tag/release state.'
+            exit 1
+          fi
+
+          echo "release-id=$release_id" >> "$GITHUB_OUTPUT"
+
+      - name: Attach exact assets to the release ID
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.release-id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(
+            "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.manifest.json"
+            "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip"
+            "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip.sha256"
+          )
+
+          for asset_name in "${expected[@]}"; do
+            asset="dist/${asset_name}"
+            local_digest="sha256:$(sha256sum "$asset" | awk '{print $1}')"
+            matches="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" | jq -c --arg name "$asset_name" '[.[] | select(.name == $name)]')"
+            count="$(jq 'length' <<< "$matches")"
+            if [[ "$count" -gt 1 ]]; then
+              echo "::error::Duplicate existing release asset: ${asset_name}"
+              exit 1
+            fi
+            if [[ "$count" -eq 1 ]]; then
+              existing_id="$(jq -er '.[0].id' <<< "$matches")"
+              remote_digest="$(jq -er '.[0].digest' <<< "$matches")"
+              if [[ "$remote_digest" == "$local_digest" ]]; then
+                continue
+              fi
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${existing_id}" >/dev/null
+            fi
+            curl --fail-with-body --silent --show-error \
+              -X POST \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2026-03-10' \
+              -H 'Content-Type: application/octet-stream' \
+              --data-binary "@${asset}" \
+              "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${asset_name}" \
+              >/dev/null
+          done
+
+      - name: Verify exact draft, publish, and read back final release
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.release-id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_names="$(printf '%s\n' \
+            "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.manifest.json" \
+            "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip" \
+            "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip.sha256" \
+            | jq -Rsc 'split("\n") | map(select(length > 0)) | sort')"
+          local_digests="$(for f in dist/*; do printf '%s\tsha256:%s\n' "$(basename "$f")" "$(sha256sum "$f" | awk '{print $1}')"; done | jq -Rsc 'split("\n") | map(select(length > 0) | split("\t") | {name:.[0],digest:.[1]}) | sort_by(.name)')"
+
+          draft="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+          jq -e --argjson id "$RELEASE_ID" --arg tag "$RAN_RELEASE_TAG" --arg commit "$RAN_HISTORICAL_COMMIT" \
+            '.id == $id and .tag_name == $tag and .target_commitish == $commit and .draft == true and .prerelease == false' \
+            <<< "$draft" >/dev/null
+          test "$(jq -c '[.assets[].name] | sort' <<< "$draft")" = "$expected_names"
+          test "$(jq -c '[.assets[] | {name,digest}] | sort_by(.name)' <<< "$draft")" = "$local_digests"
+
+          jq -nc '{draft:false,prerelease:false,make_latest:"true"}' \
+            | gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --input - >/dev/null
+
+          verified=false
+          for attempt in 1 2 3; do
+            final="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+            tag_ref="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RAN_RELEASE_TAG}")"
+            if jq -e --argjson id "$RELEASE_ID" --arg tag "$RAN_RELEASE_TAG" --arg commit "$RAN_HISTORICAL_COMMIT" \
+                '.id == $id and .tag_name == $tag and .target_commitish == $commit and .draft == false and .prerelease == false' \
+                <<< "$final" >/dev/null \
+              && [[ "$(jq -er '.object.type' <<< "$tag_ref")" == commit ]] \
+              && [[ "$(jq -er '.object.sha' <<< "$tag_ref")" == "$RAN_HISTORICAL_COMMIT" ]] \
+              && [[ "$(jq -c '[.assets[].name] | sort' <<< "$final")" == "$expected_names" ]] \
+              && [[ "$(jq -c '[.assets[] | {name,digest}] | sort_by(.name)' <<< "$final")" == "$local_digests" ]]; then
+              verified=true
+              break
+            fi
+            [[ "$attempt" -lt 3 ]] && sleep 2
+          done
+          test "$verified" = true
+
+      - name: Reconcile Release Please PR labels only after exact publication readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          labels="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${RAN_RELEASE_PR}" --jq '[.labels[].name]')"
+          if ! jq -e 'index("autorelease: tagged") != null' <<< "$labels" >/dev/null; then
+            jq -nc '{labels:["autorelease: tagged"]}' \
+              | gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${RAN_RELEASE_PR}/labels" --input - >/dev/null
+          fi
+          if jq -e 'index("autorelease: pending") != null' <<< "$labels" >/dev/null; then
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/issues/${RAN_RELEASE_PR}/labels/autorelease%3A%20pending" >/dev/null
+          fi
