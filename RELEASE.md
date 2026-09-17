@@ -53,23 +53,29 @@ disabled in source control until the deployment contract is deliberately
 enabled.
 
 Published GitHub releases intentionally remain mutable only for this bounded
-recovery case. Historical repository code is checked out, validated, and used
-to rebuild the three canonical assets in a separate job with no repository
-token permissions. Those rebuilt files cross into a fresh write-capable job
-only as a workflow artifact; the publisher does not check out or execute the
-historical repository source. The workflow artifact name is stable for the
-workflow run so a failed publisher job can reuse a successful build on a later
-run attempt; a rerun of the build replaces that same-run artifact deliberately.
-Before replacement, the fresh publisher resolves the live Git tag (peeling
-annotated tags to their commit) and existing GitHub release and requires both to
-identify the exact commit recorded in the rebuilt manifest. It also verifies
-the manifest, archive checksum, tag, version, source commit, release mutability,
-and existing asset boundary before replacement. Asset deletion and upload are
-bound to that prevalidated release ID rather than resolving the mutable tag
-again. After replacement the publisher re-reads the same release and tag,
-requires the exact manifest/ZIP/checksum asset set, and compares GitHub's
-SHA-256 digest for every published asset with the rebuilt local file. Any
-identity, target, asset-set, or digest mismatch fails closed.
+recovery case. Manual recovery is admitted from protected `main`; the checked-in
+ref guard prevents accidental recovery from another selected dispatch ref. It
+is defence-in-depth rather than an independent authorization boundary against a
+trusted workflow author; organisation-level workflow execution authority is
+tracked separately under `RocketsAreNostalgic/.github#24`.
+
+Historical repository code is checked out, validated, and used to rebuild the
+three canonical assets in a separate job with no repository token permissions.
+Those rebuilt files cross into a fresh write-capable job only as a workflow
+artifact; the publisher does not check out or execute the historical repository
+source. The workflow artifact name is stable for the workflow run so a failed
+publisher job can reuse a successful build on a later run attempt; a rerun of
+the build replaces that same-run artifact deliberately. Before replacement,
+the fresh publisher resolves the live Git tag (peeling annotated tags to their
+commit) and existing GitHub release and requires both to identify the exact
+commit recorded in the rebuilt manifest. It also verifies the manifest, archive
+checksum, tag, version, source commit, release mutability, and existing asset
+boundary before replacement. Asset deletion and upload are bound to that
+prevalidated release ID rather than resolving the mutable tag again. After
+replacement the publisher re-reads the same release and tag, requires the exact
+manifest/ZIP/checksum asset set, and compares GitHub's SHA-256 digest for every
+published asset with the rebuilt local file. Any identity, target, asset-set, or
+digest mismatch fails closed.
 
 ## Release archive
 
@@ -95,12 +101,12 @@ Jetpack, and GitHub publication. The release workflow accepts only the artifact
 from the successful same-repository Quality run for the exact `main` commit.
 
 For manual WordPress.org publication or recovery, dispatch the release workflow
-with an existing `v<version>` tag. The credential-free build job checks out and
-rebuilds that exact tag, then a fresh publisher job independently binds the
-artifact and replacement to the live tag, exact release ID, and release target
-before replacing only the expected three GitHub release assets. The publisher
-verifies the final target and SHA-256 digests before any separately approved
-protected SVN action can consume them.
+from protected `main` with an existing `v<version>` tag. The credential-free
+build job checks out and rebuilds that exact tag, then a fresh publisher job
+independently binds the artifact and replacement to the live tag, exact release
+ID, and release target before replacing only the expected three GitHub release
+assets. The publisher verifies the final target and SHA-256 digests before any
+separately approved protected SVN action can consume them.
 
 ## WordPress.org publication
 
