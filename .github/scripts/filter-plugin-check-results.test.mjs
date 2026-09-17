@@ -164,7 +164,10 @@ test('accepts exact historical v0.4.0 Tested up to drift while preserving the si
 	assert.match(result.output, /Accepted historical v0\.4\.0 metadata drift/);
 	assert.match(result.output, /"historical_line":0/);
 	assert.match(result.output, /"historical_column":0/);
-	assert.match(result.stderr, /Accepted one historical v0\.4\.0 Tested up to/);
+	assert.match(
+		result.stderr,
+		/Accepted one historical v0\.4\.0 Tested up to/
+	);
 	assert.equal(
 		result.output.match(/Accepted Cloudflare Turnstile dependency/g)
 			?.length,
