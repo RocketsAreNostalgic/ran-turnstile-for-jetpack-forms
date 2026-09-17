@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.1](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.4.0...v0.4.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* **ci:** pin Plugin Check to WordPress 7.0.3 ([8f0f015](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/8f0f0155f0f487f41cfcf5f8c007c720d608facd))
+* **ci:** pin Plugin Check to WordPress 7.0.3 ([d2a1e9b](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/d2a1e9b3c0fcbfb2752393d00cbf881fa17227e2))
+* enforce WordPress compatibility floor ([880ce2a](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/880ce2ab1c5d9501370dcc66e070e6125b511f36))
+* **release:** admit exact historical Tested up to drift ([#23](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues/23)) ([946fcc8](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/946fcc8ea4e756cdd6fd98da6989a6ca3a352ca7))
+* **release:** harden mutable recovery provenance ([#17](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues/17)) ([7306049](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/7306049bed0739d7d3a9553fb975e45f6736c4fc))
+* **release:** reconcile missing v0.4.0 publication ([#20](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues/20)) ([f34baa0](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/f34baa0da9360f61a20cd1b389187dedb7af2df4))
+
+
+### Miscellaneous Chores
+
+* adopt shared RAN quality profile ([#15](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues/15)) ([b7fd83d](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/b7fd83d0fe2786e7eb257d81fba41379e82e3737))
+* **release:** remove v0.4.0 reconciliation scaffolding ([#25](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues/25)) ([deb0a2e](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/deb0a2e38bab848ace607c2319bfb38e9d25fc4b))
+
 ## [0.4.0](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.3.1...v0.4.0) (2026-08-12)
 
 
