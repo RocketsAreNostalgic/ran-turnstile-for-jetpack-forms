@@ -32,7 +32,8 @@ for (const line of lines) {
 
 		const normalizedFile = currentFile.replaceAll('\\', '/');
 		const historicalReadme =
-			normalizedFile === 'readme.txt' || normalizedFile.endsWith('/readme.txt');
+			normalizedFile === 'readme.txt' ||
+			normalizedFile.endsWith('/readme.txt');
 
 		const remaining = findings.filter((finding) => {
 			const historicalMetadataFinding =
