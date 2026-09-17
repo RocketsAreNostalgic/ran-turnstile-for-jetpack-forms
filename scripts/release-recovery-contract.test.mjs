@@ -190,6 +190,7 @@ test('one-time v0.4.0 reconciliation is canonical and hard-coded to the historic
 		reconciliation,
 		/types: \[completed\]\n\s+branches: \[main\]\n\npermissions: \{\}/
 	);
+	assert.match(reconciliation, /concurrency:\n\s+group: release-please-main\n\s+cancel-in-progress: false/);
 	assert.match(
 		reconciliation,
 		/RAN_HISTORICAL_COMMIT: 89e9ef33dda3356c644ad094abafb1ac2faf63e0/
@@ -273,7 +274,7 @@ test('one-time v0.4.0 qualification reruns the fixed Plugin Check environment', 
 test('one-time v0.4.0 publisher is source-free and performs exact release-ID-bound readback', () => {
 	assert.match(
 		reconciliationPublisher,
-		/permissions:\n\s+actions: read\n\s+contents: write\n\s+issues: write/
+		/permissions:\n\s+actions: read\n\s+contents: write\n\s+issues: write\n\s+pull-requests: read/
 	);
 	assert.doesNotMatch(reconciliationPublisher, /actions\/checkout@/);
 	assert.doesNotMatch(
