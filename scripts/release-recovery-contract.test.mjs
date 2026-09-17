@@ -190,7 +190,10 @@ test('one-time v0.4.0 reconciliation is canonical and hard-coded to the historic
 		reconciliation,
 		/types: \[completed\]\n\s+branches: \[main\]\n\npermissions: \{\}/
 	);
-	assert.match(reconciliation, /concurrency:\n\s+group: release-please-main\n\s+cancel-in-progress: false/);
+	assert.match(
+		reconciliation,
+		/concurrency:\n\s+group: release-please-main\n\s+cancel-in-progress: false/
+	);
 	assert.match(
 		reconciliation,
 		/RAN_HISTORICAL_COMMIT: 89e9ef33dda3356c644ad094abafb1ac2faf63e0/
@@ -358,5 +361,13 @@ test('one-time v0.4.0 publisher resumes exact drafts and partial label cleanup s
 	assert.match(
 		reconciliationPublisher,
 		/if \[\[ "\$pending" != true && "\$tagged" != true \]\]; then/
+	);
+	assert.match(
+		reconciliationPublisher,
+		/verified=false\n\s+for attempt in 1 2 3; do/
+	);
+	assert.match(
+		reconciliationPublisher,
+		/\[\[ "\$attempt" -lt 3 \]\] && sleep 2/
 	);
 });
