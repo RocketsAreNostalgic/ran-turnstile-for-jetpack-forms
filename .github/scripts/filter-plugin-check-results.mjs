@@ -46,6 +46,8 @@ const historicalTestedUpTo = {
 	file: 'readme.txt',
 	code: 'outdated_tested_upto_header',
 	docs: 'https://developer.wordpress.org/plugins/wordpress-org/how-your-readme-txt-works/#readme-header-information',
+	message:
+		'Tested up to: 7.0 < 7.1. The "Tested up to" value in your plugin is not set to the current version of WordPress. This means your plugin will not show up in searches, as we require plugins to be compatible and documented as tested up to the most recent version of WordPress.',
 	stableTag: '0.4.0',
 	testedUpTo: '7.0',
 };
@@ -142,10 +144,7 @@ function isAcceptedHistoricalTestedUpTo(file, finding) {
 		finding.type !== 'ERROR' ||
 		finding.code !== historicalTestedUpTo.code ||
 		finding.docs !== historicalTestedUpTo.docs ||
-		typeof finding.message !== 'string' ||
-		!finding.message.startsWith(
-			`Tested up to: ${historicalTestedUpTo.testedUpTo} < `
-		)
+		finding.message !== historicalTestedUpTo.message
 	) {
 		return false;
 	}
