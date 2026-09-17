@@ -80,9 +80,9 @@ jobs:
           grep -Fq "github.event_name == 'pull_request'" .github/workflows/quality.yml
           # These single-quoted patterns are literal workflow contracts.
           # shellcheck disable=SC2016
-          grep -Fq 'git log -1 --format=%H "$RAN_QUALITY_COMMIT" -- .release-please-manifest.json' .github/workflows/release-please.yml
+          grep -Fq 'git log -1 --format=%H "$RAN_QUALITY_COMMIT" -- .release-please-manifest.json' .github/workflows/release-publisher.yml
           # shellcheck disable=SC2016
-          grep -Fq 'git rev-parse "${RAN_QUALITY_COMMIT}^{tree}"' .github/workflows/release-please.yml
+          grep -Fq 'git rev-parse "${RAN_QUALITY_COMMIT}^{tree}"' .github/workflows/release-publisher.yml
 
       - name: Build and verify the canonical release assets once
         id: release

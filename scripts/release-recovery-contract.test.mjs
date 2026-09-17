@@ -1,8 +1,17 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const workflow = await readFile('.github/workflows/release-please.yml', 'utf8');
+const workflow = await readFile(
+	'.github/workflows/release-publisher.yml',
+	'utf8'
+);
+assert.equal(
+	existsSync('.github/workflows/release-please.yml'),
+	false,
+	'legacy dispatchable workflow path must stay absent so historical tags cannot be manually dispatched'
+);
 const buildStart = workflow.indexOf('\n  package-release-build:\n');
 const publishStart = workflow.indexOf('\n  package-release:\n', buildStart + 1);
 const deployStart = workflow.indexOf(
