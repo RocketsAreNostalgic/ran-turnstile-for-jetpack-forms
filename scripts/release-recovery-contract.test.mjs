@@ -61,7 +61,9 @@ const reconciliationPluginCheck = reconciliation.slice(
 	reconciliationPluginCheckStart,
 	reconciliationPublishStart
 );
-const reconciliationPublisher = reconciliation.slice(reconciliationPublishStart);
+const reconciliationPublisher = reconciliation.slice(
+	reconciliationPublishStart
+);
 
 test('manual recovery is defense-in-depth bound to protected main', () => {
 	assert.match(
@@ -278,7 +280,10 @@ test('one-time v0.4.0 publisher is source-free and performs exact release-ID-bou
 		'v0.4.0 has a partial tag/release state',
 	]) {
 		const position = reconciliationPublisher.indexOf(precondition);
-		assert.ok(position >= 0, `missing v0.4.0 precondition: ${precondition}`);
+		assert.ok(
+			position >= 0,
+			`missing v0.4.0 precondition: ${precondition}`
+		);
 		assert.ok(
 			position < upload,
 			`v0.4.0 precondition moved after upload: ${precondition}`
@@ -291,7 +296,10 @@ test('one-time v0.4.0 publisher is source-free and performs exact release-ID-bou
 		'[.assets[].name] | sort',
 		'[.assets[] | {name, digest}] | sort_by(.name)',
 	]) {
-		const position = reconciliationPublisher.indexOf(postcondition, upload + 1);
+		const position = reconciliationPublisher.indexOf(
+			postcondition,
+			upload + 1
+		);
 		assert.ok(
 			position > upload,
 			`missing v0.4.0 post-publication readback: ${postcondition}`
