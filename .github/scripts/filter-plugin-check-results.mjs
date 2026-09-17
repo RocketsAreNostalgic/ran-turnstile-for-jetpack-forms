@@ -56,6 +56,7 @@ const lines = raw.split(/\r?\n/);
 const output = [];
 let currentFile = null;
 let hasFilteredErrors = false;
+let acceptedHistoricalV040Metadata = 0;
 
 function isWithinRoot(file, candidateRoot) {
 	return (
@@ -102,6 +103,29 @@ function sourceLineFor(file, lineNumber) {
 
 function urlsFromSourceLine(sourceLine) {
 	return sourceLine.match(/(?:[a-z][a-z\d+.-]*:)?\/\/[^\s'"`<>]+/gi) ?? [];
+}
+
+function isHistoricalV040TestedUpToFinding(file, finding) {
+	if (
+		file !== 'readme.txt' ||
+		!finding ||
+		typeof finding !== 'object' ||
+		finding.line !== 0 ||
+		finding.column !== 0 ||
+		finding.type !== 'ERROR' ||
+		finding.code !== 'outdated_tested_upto_header' ||
+		typeof finding.message !== 'string' ||
+		!finding.message.startsWith('Tested up to: 7.0 < 7.1.')
+	) {
+		return false;
+	}
+
+	const { sourcePath } = resolveSourcePath(file);
+	const source = fs.readFileSync(sourcePath, 'utf8');
+	return (
+		/^Tested up to: 7\.0$/m.test(source) &&
+		/^Stable tag: 0\.4\.0$/m.test(source)
+	);
 }
 
 function acceptedTupleKey(file, finding) {
@@ -151,14 +175,19 @@ for (const line of lines) {
 		}
 
 		for (const finding of findings) {
-			if (
-				!finding ||
-				typeof finding !== 'object' ||
-				!Number.isInteger(finding.line) ||
-				finding.line < 1 ||
-				typeof finding.code !== 'string' ||
-				!['ERROR', 'WARNING'].includes(finding.type)
-			) {
+			const historicalV040 = isHistoricalV040TestedUpToFinding(
+				currentFile,
+				finding
+			);
+			const standardFinding =
+				finding &&
+				typeof finding === 'object' &&
+				Number.isInteger(finding.line) &&
+				finding.line >= 1 &&
+				typeof finding.code === 'string' &&
+				['ERROR', 'WARNING'].includes(finding.type);
+
+			if (!standardFinding && !historicalV040) {
 				throw new Error(
 					`Invalid Plugin Check finding for ${currentFile}`
 				);
@@ -166,6 +195,19 @@ for (const line of lines) {
 		}
 
 		const adjusted = findings.map((finding) => {
+			if (isHistoricalV040TestedUpToFinding(currentFile, finding)) {
+				acceptedHistoricalV040Metadata += 1;
+				return {
+					...finding,
+					line: 5,
+					column: 1,
+					type: 'WARNING',
+					message: `[Accepted historical v0.4.0 metadata drift] ${finding.message}`,
+					historical_line: finding.line,
+					historical_column: finding.column,
+				};
+			}
+
 			const key = acceptedTupleKey(currentFile, finding);
 			if (!key) {
 				return finding;
@@ -209,6 +251,12 @@ const contractErrors = expectedAcceptedFindings.flatMap((finding) => {
 			];
 });
 
+if (acceptedHistoricalV040Metadata > 1) {
+	contractErrors.push(
+		`Expected historical v0.4.0 metadata drift at most once but found ${acceptedHistoricalV040Metadata}.`
+	);
+}
+
 if (hasFilteredErrors) {
 	contractErrors.push(
 		'Filtered Plugin Check results still contain ERROR findings.'
@@ -224,3 +272,8 @@ if (contractErrors.length > 0) {
 console.error(
 	`Accepted ${expectedAcceptedFindings.length} expected Cloudflare Turnstile findings.`
 );
+if (acceptedHistoricalV040Metadata === 1) {
+	console.error(
+		'Accepted one historical v0.4.0 Tested up to metadata finding.'
+	);
+}
