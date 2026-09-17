@@ -6,7 +6,10 @@ const workflow = readFileSync(
 	new URL('../.github/workflows/release-publisher.yml', import.meta.url),
 	'utf8'
 );
-const legacyWorkflowUrl = new URL('../.github/workflows/release-please.yml', import.meta.url);
+const legacyWorkflowUrl = new URL(
+	'../.github/workflows/release-please.yml',
+	import.meta.url
+);
 assert.equal(
 	existsSync(legacyWorkflowUrl),
 	false,
