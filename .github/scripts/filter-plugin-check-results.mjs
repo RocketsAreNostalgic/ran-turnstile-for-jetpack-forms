@@ -42,6 +42,14 @@ const expectedAcceptedFindings = [
 	},
 ];
 
+const historicalTestedUpTo = {
+	file: 'readme.txt',
+	code: 'outdated_tested_upto_header',
+	docs: 'https://developer.wordpress.org/plugins/wordpress-org/how-your-readme-txt-works/#readme-header-information',
+	stableTag: '0.4.0',
+	testedUpTo: '7.0',
+};
+
 function tupleKey({ file, code, url }) {
 	return JSON.stringify([file, code, url]);
 }
@@ -56,6 +64,7 @@ const lines = raw.split(/\r?\n/);
 const output = [];
 let currentFile = null;
 let hasFilteredErrors = false;
+let historicalTestedUpToCount = 0;
 
 function isWithinRoot(file, candidateRoot) {
 	return (
@@ -123,6 +132,38 @@ function acceptedTupleKey(file, finding) {
 	return expectedCounts.has(key) ? key : null;
 }
 
+function isAcceptedHistoricalTestedUpTo(file, finding) {
+	if (
+		file !== historicalTestedUpTo.file ||
+		!finding ||
+		typeof finding !== 'object' ||
+		finding.line !== 0 ||
+		finding.column !== 0 ||
+		finding.type !== 'ERROR' ||
+		finding.code !== historicalTestedUpTo.code ||
+		finding.docs !== historicalTestedUpTo.docs ||
+		typeof finding.message !== 'string' ||
+		!finding.message.startsWith(
+			`Tested up to: ${historicalTestedUpTo.testedUpTo} < `
+		)
+	) {
+		return false;
+	}
+
+	const { sourcePath } = resolveSourcePath(file);
+	const source = fs.readFileSync(sourcePath, 'utf8');
+	return (
+		new RegExp(
+			`^Tested up to: ${historicalTestedUpTo.testedUpTo.replace('.', '\\.')}$`,
+			'm'
+		).test(source) &&
+		new RegExp(
+			`^Stable tag: ${historicalTestedUpTo.stableTag.replace('.', '\\.')}$`,
+			'm'
+		).test(source)
+	);
+}
+
 for (const line of lines) {
 	if (line.startsWith('FILE: ')) {
 		if (currentFile) {
@@ -151,6 +192,10 @@ for (const line of lines) {
 		}
 
 		for (const finding of findings) {
+			if (isAcceptedHistoricalTestedUpTo(currentFile, finding)) {
+				continue;
+			}
+
 			if (
 				!finding ||
 				typeof finding !== 'object' ||
@@ -166,6 +211,15 @@ for (const line of lines) {
 		}
 
 		const adjusted = findings.map((finding) => {
+			if (isAcceptedHistoricalTestedUpTo(currentFile, finding)) {
+				historicalTestedUpToCount += 1;
+				return {
+					...finding,
+					type: 'WARNING',
+					message: `[Accepted historical v0.4.0 Tested up to drift] ${finding.message}`,
+				};
+			}
+
 			const key = acceptedTupleKey(currentFile, finding);
 			if (!key) {
 				return finding;
@@ -209,6 +263,12 @@ const contractErrors = expectedAcceptedFindings.flatMap((finding) => {
 			];
 });
 
+if (historicalTestedUpToCount > 1) {
+	contractErrors.push(
+		`Expected at most one historical v0.4.0 Tested up to finding but found ${historicalTestedUpToCount}.`
+	);
+}
+
 if (hasFilteredErrors) {
 	contractErrors.push(
 		'Filtered Plugin Check results still contain ERROR findings.'
@@ -222,5 +282,5 @@ if (contractErrors.length > 0) {
 }
 
 console.error(
-	`Accepted ${expectedAcceptedFindings.length} expected Cloudflare Turnstile findings.`
+	`Accepted ${expectedAcceptedFindings.length} expected Cloudflare Turnstile findings${historicalTestedUpToCount === 1 ? ' plus the bounded historical v0.4.0 Tested up to finding' : ''}.`
 );
