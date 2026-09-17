@@ -18,6 +18,17 @@ const build = workflow.slice(buildStart, publishStart);
 const publisher = workflow.slice(publishStart, deployStart);
 const checksumIdentity = `printf '%s  %s\\n' "$archive_sha256" "$(basename "$archive")" | cmp -s - "$checksum"`;
 
+test('manual recovery is defense-in-depth bound to protected main', () => {
+	assert.match(
+		build,
+		/if: github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'/
+	);
+	assert.match(
+		publisher,
+		/if: github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main' && needs\.package-release-build\.result == 'success'/
+	);
+});
+
 test('historical release code runs in a separate job without repository token permissions', () => {
 	assert.match(build, /permissions: \{\}/);
 	assert.doesNotMatch(build, /GH_TOKEN|GITHUB_TOKEN|secrets\.GITHUB_TOKEN/);
