@@ -14,11 +14,6 @@ const scriptPath = path.join(
 const offloadingCode = 'PluginCheck.CodeAnalysis.Offloading.OffloadedContent';
 const enqueuedCode =
 	'PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent';
-const outdatedTestedUpToCode = 'outdated_tested_upto_header';
-const outdatedTestedUpToDocs =
-	'https://developer.wordpress.org/plugins/wordpress-org/how-your-readme-txt-works/#readme-header-information';
-const outdatedTestedUpToMessage =
-	'Tested up to: 7.0 < 7.1. The "Tested up to" value in your plugin is not set to the current version of WordPress. This means your plugin will not show up in searches, as we require plugins to be compatible and documented as tested up to the most recent version of WordPress.';
 
 function finding(code = offloadingCode, overrides = {}) {
 	return {
@@ -61,26 +56,6 @@ function expectedFixture() {
 			],
 		},
 	];
-}
-
-function historicalReadmeSection(overrides = {}) {
-	return {
-		file: 'readme.txt',
-		sourceLines: [
-			'=== RAN Turnstile for Jetpack Forms ===',
-			'Tested up to: 7.0',
-			'Stable tag: 0.4.0',
-		],
-		findings: [
-			finding(outdatedTestedUpToCode, {
-				line: 0,
-				column: 0,
-				message: outdatedTestedUpToMessage,
-				docs: outdatedTestedUpToDocs,
-				...overrides,
-			}),
-		],
-	};
 }
 
 function runFilter({
@@ -147,68 +122,6 @@ test('accepts each of the six expected findings exactly once', () => {
 			?.length,
 		6
 	);
-});
-
-test('accepts the one exact historical v0.4.0 Tested up to drift', () => {
-	const result = runFilter({
-		sections: [...expectedFixture(), historicalReadmeSection()],
-	});
-
-	assert.equal(result.status, 0, result.stderr);
-	assert.equal(result.output.match(/"type":"WARNING"/g)?.length, 7);
-	assert.match(
-		result.output,
-		/Accepted historical v0\.4\.0 Tested up to drift/
-	);
-	assert.match(result.stderr, /plus the bounded historical v0\.4\.0/);
-});
-
-test('rejects the historical Tested up to code for a different release tag', () => {
-	const readme = historicalReadmeSection();
-	readme.sourceLines[2] = 'Stable tag: 0.4.1';
-	const result = runFilter({
-		sections: [...expectedFixture(), readme],
-	});
-
-	assert.notEqual(result.status, 0);
-	assert.equal(result.output, '');
-	assert.match(result.stderr, /Invalid Plugin Check finding for readme\.txt/);
-});
-
-test('rejects the historical Tested up to code when the source Tested up to value changes', () => {
-	const readme = historicalReadmeSection();
-	readme.sourceLines[1] = 'Tested up to: 7.1';
-	const result = runFilter({
-		sections: [...expectedFixture(), readme],
-	});
-
-	assert.notEqual(result.status, 0);
-	assert.equal(result.output, '');
-	assert.match(result.stderr, /Invalid Plugin Check finding for readme\.txt/);
-});
-
-test('rejects the historical Tested up to code when the exact message changes', () => {
-	const result = runFilter({
-		sections: [
-			...expectedFixture(),
-			historicalReadmeSection({ message: 'Tested up to: 7.0 < 7.2.' }),
-		],
-	});
-
-	assert.notEqual(result.status, 0);
-	assert.equal(result.output, '');
-	assert.match(result.stderr, /Invalid Plugin Check finding for readme\.txt/);
-});
-
-test('fails when the historical Tested up to finding is duplicated', () => {
-	const readme = historicalReadmeSection();
-	readme.findings.push({ ...readme.findings[0] });
-	const result = runFilter({
-		sections: [...expectedFixture(), readme],
-	});
-
-	assertGateFailsWithEvidence(result);
-	assert.match(result.stderr, /at most one historical v0\.4\.0/);
 });
 
 test('writes only filtered evidence to stdout', () => {
