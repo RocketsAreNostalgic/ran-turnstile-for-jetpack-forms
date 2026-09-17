@@ -62,10 +62,8 @@ test('historical metadata exception is exact and the normal Turnstile filter sti
 		historicalFilter,
 		/const normalizedFile = currentFile\.replaceAll\('\\\\', '\/'\)/
 	);
-	assert.match(
-		historicalFilter,
-		/normalizedFile === 'readme\.txt' \|\| normalizedFile\.endsWith\('\/readme\.txt'\)/
-	);
+	assert.match(historicalFilter, /normalizedFile === 'readme\.txt'/);
+	assert.match(historicalFilter, /normalizedFile\.endsWith\('\/readme\.txt'\)/);
 	assert.match(
 		historicalFilter,
 		/finding\?\.code === 'outdated_tested_upto_header'/
