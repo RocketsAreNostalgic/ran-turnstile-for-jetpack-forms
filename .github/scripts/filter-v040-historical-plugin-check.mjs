@@ -71,4 +71,6 @@ if (accepted !== 1) {
 }
 
 fs.writeFileSync(outputPath, output.join('\n'));
-console.error('Accepted exactly one historical v0.4.0 Tested up to metadata finding.');
+console.error(
+	'Accepted exactly one historical v0.4.0 Tested up to metadata finding.'
+);
