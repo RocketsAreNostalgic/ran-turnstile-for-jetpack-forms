@@ -592,17 +592,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RAN_RELEASE_TAG}")"
-          release_id="$(jq -er '.id' <<< "$release_json")"
-          jq -e \
-            --arg tag "$RAN_RELEASE_TAG" \
-            --arg commit "$RAN_HISTORICAL_COMMIT" \
-            '.tag_name == $tag and .target_commitish == $commit and .draft == false and .prerelease == false' \
-            <<< "$release_json" >/dev/null
-
-          tag_ref="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RAN_RELEASE_TAG}")"
-          jq -e --arg commit "$RAN_HISTORICAL_COMMIT" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_ref" >/dev/null
-
           expected_names="$(
             printf '%s\n' \
               "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.manifest.json" \
@@ -610,8 +599,6 @@ jobs:
               "ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.zip.sha256" \
               | jq -Rsc 'split("\n") | map(select(length > 0)) | sort'
           )"
-          test "$(jq -c '[.assets[].name] | sort' <<< "$release_json")" = "$expected_names"
-
           local_digests="$(
             for asset in \
               "dist/ran-turnstile-for-jetpack-forms-${RAN_RELEASE_VERSION}.manifest.json" \
@@ -624,10 +611,32 @@ jobs:
                 '{name: $name, digest: $digest}'
             done | jq -sc 'sort_by(.name)'
           )"
-          remote_digests="$(jq -c '[.assets[] | {name, digest}] | sort_by(.name)' <<< "$release_json")"
-          test "$remote_digests" = "$local_digests"
 
-          printf 'release_id=%s\n' "$release_id"
+          verified=false
+          for attempt in 1 2 3; do
+            if release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RAN_RELEASE_TAG}")" \
+              && tag_ref="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RAN_RELEASE_TAG}")"; then
+              if jq -e \
+                --arg tag "$RAN_RELEASE_TAG" \
+                --arg commit "$RAN_HISTORICAL_COMMIT" \
+                '.tag_name == $tag and .target_commitish == $commit and .draft == false and .prerelease == false' \
+                <<< "$release_json" >/dev/null \
+                && jq -e --arg commit "$RAN_HISTORICAL_COMMIT" '.object.type == "commit" and .object.sha == $commit' <<< "$tag_ref" >/dev/null; then
+                actual_names="$(jq -c '[.assets[].name] | sort' <<< "$release_json")"
+                remote_digests="$(jq -c '[.assets[] | {name, digest}] | sort_by(.name)' <<< "$release_json")"
+                if [[ "$actual_names" == "$expected_names" && "$remote_digests" == "$local_digests" ]]; then
+                  verified=true
+                  break
+                fi
+              fi
+            fi
+            [[ "$attempt" -lt 3 ]] && sleep 2
+          done
+
+          if [[ "$verified" != true ]]; then
+            echo '::error::Published v0.4.0 readback did not converge to the qualified provenance.'
+            exit 1
+          fi
 
       - name: Reconcile Release Please PR labels only after exact publication readback
         env:
