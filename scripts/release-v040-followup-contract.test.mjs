@@ -51,6 +51,7 @@ test('Plugin Check reuses the exact already compatibility-tested artifact', () =
 		pluginCheck,
 		/repos\/\$\{GITHUB_REPOSITORY\}\/actions\/runs\/\$\{RAN_SOURCE_RUN\}/
 	);
+	assert.match(pluginCheck, /map\(\.jobs\) \| add/);
 	assert.match(pluginCheck, /Rebuild exact historical v0\.4\.0 source/);
 	assert.match(pluginCheck, /Historical v0\.4\.0 \/ Plugin Check/);
 	assert.match(pluginCheck, /name: \$\{\{ env\.RAN_ARTIFACT_NAME \}\}/);
@@ -101,7 +102,7 @@ test('publisher is source-free and mutates only the exact historical release ide
 	assert.match(publisher, /git\/commits\/\$\{RAN_RELEASE_HEAD\}/);
 	assert.match(
 		publisher,
-		/v0\.4\.0 has a partial or duplicate tag\/release state/
+		/v0\.4\.0 has a partial, duplicate, or contradictory tag\/release state/
 	);
 	assert.match(
 		publisher,
@@ -114,5 +115,39 @@ test('publisher is source-free and mutates only the exact historical release ide
 	assert.match(
 		publisher,
 		/Reconcile Release Please PR labels only after exact publication readback/
+	);
+});
+
+test('publisher distinguishes resumable drafts from already-published releases before mutation', () => {
+	assert.match(
+		publisher,
+		/elif \[\[ "\$release_count" -eq 1 && "\$tag_count" -eq 0 \]\]; then/
+	);
+	assert.match(
+		publisher,
+		/\.tag_name == \$tag and \.target_commitish == \$commit and \.draft == true and \.prerelease == false/
+	);
+	assert.match(publisher, /release_state=draft/);
+	assert.match(
+		publisher,
+		/elif \[\[ "\$release_count" -eq 1 && "\$tag_count" -eq 1 \]\]; then/
+	);
+	assert.match(
+		publisher,
+		/\.tag_name == \$tag and \.target_commitish == \$commit and \.draft == false and \.prerelease == false/
+	);
+	assert.match(publisher, /release_state=published/);
+	assert.match(
+		publisher,
+		/if: steps\.release\.outputs\.release-state == 'draft'/
+	);
+	assert.match(
+		publisher,
+		/RELEASE_STATE: \$\{\{ steps\.release\.outputs\.release-state \}\}/
+	);
+	assert.match(publisher, /if \[\[ "\$RELEASE_STATE" == draft \]\]; then/);
+	assert.match(
+		publisher,
+		/elif \[\[ "\$RELEASE_STATE" != published \]\]; then/
 	);
 });
