@@ -295,7 +295,7 @@ jobs:
           test "$(resolve_tag_commit "$tag_ref_before")" = "$commit"
           release_before="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}")"
           jq -e --arg commit "$commit" --arg tag "$TAG_NAME" '.tag_name == $tag and .target_commitish == $commit and .draft == false and .immutable == false' <<< "$release_before" >/dev/null
-          jq -e --argjson expected "$expected" '([.assets[].name] - $expected) | length == 0' <<< "$release_before" >/dev/null
+          jq -e --argjson expected "$expected" '([.assets[].name] | length) == ([.assets[].name] | unique | length) and (([.assets[].name] - $expected) | length == 0)' <<< "$release_before" >/dev/null
           release_id="$(jq -er '.id' <<< "$release_before")"
 
           manifest_sha256="$(jq -er '.sha256 | select(test("^[0-9a-f]{64}$"))' "$manifest")"
