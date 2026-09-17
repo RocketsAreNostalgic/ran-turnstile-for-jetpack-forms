@@ -67,7 +67,7 @@ jobs:
              and .conclusion == "failure"' \
             <<< "$run_json" >/dev/null
 
-          jobs="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/actions/runs/${RAN_SOURCE_RUN}/jobs?per_page=100" | jq -c 'add | .jobs')"
+          jobs="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/actions/runs/${RAN_SOURCE_RUN}/jobs?per_page=100" | jq -c 'map(.jobs) | add')"
           test "$(jq '[.[] | select(.name == "Rebuild exact historical v0.4.0 source" and .conclusion == "success")] | length' <<< "$jobs")" = 1
           test "$(jq '[.[] | select(.name | startswith("Historical v0.4.0 / PHP ")) | select(.conclusion == "success")] | length' <<< "$jobs")" = 2
           test "$(jq '[.[] | select(.name == "Historical v0.4.0 / Plugin Check" and .conclusion == "failure")] | length' <<< "$jobs")" = 1
@@ -222,7 +222,7 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ env.RAN_SOURCE_RUN }}
 
-      - name: Prove exact release identity and create or resume the draft
+      - name: Prove exact release identity and classify reconciliation state
         id: release
         shell: bash
         run: |
@@ -285,23 +285,34 @@ jobs:
               '{tag_name:$tag,target_commitish:$commit,name:$tag,draft:true,prerelease:false,generate_release_notes:true}' \
               | gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" --input -)"
             release_id="$(jq -er '.id' <<< "$created")"
+            release_state=draft
+          elif [[ "$release_count" -eq 1 && "$tag_count" -eq 0 ]]; then
+            existing="$(jq -cer '.[0]' <<< "$release_matches")"
+            release_id="$(jq -er '.id' <<< "$existing")"
+            jq -e --arg tag "$RAN_RELEASE_TAG" --arg commit "$RAN_HISTORICAL_COMMIT" \
+              '.tag_name == $tag and .target_commitish == $commit and .draft == true and .prerelease == false' \
+              <<< "$existing" >/dev/null
+            release_state=draft
           elif [[ "$release_count" -eq 1 && "$tag_count" -eq 1 ]]; then
             existing="$(jq -cer '.[0]' <<< "$release_matches")"
             release_id="$(jq -er '.id' <<< "$existing")"
             jq -e --arg tag "$RAN_RELEASE_TAG" --arg commit "$RAN_HISTORICAL_COMMIT" \
-              '.tag_name == $tag and .target_commitish == $commit and .prerelease == false' \
+              '.tag_name == $tag and .target_commitish == $commit and .draft == false and .prerelease == false' \
               <<< "$existing" >/dev/null
             tag_json="$(jq -cer '.[0]' <<< "$tag_matches")"
             test "$(jq -er '.object.type' <<< "$tag_json")" = commit
             test "$(jq -er '.object.sha' <<< "$tag_json")" = "$RAN_HISTORICAL_COMMIT"
+            release_state=published
           else
-            echo '::error::v0.4.0 has a partial or duplicate tag/release state.'
+            echo '::error::v0.4.0 has a partial, duplicate, or contradictory tag/release state.'
             exit 1
           fi
 
           echo "release-id=$release_id" >> "$GITHUB_OUTPUT"
+          echo "release-state=$release_state" >> "$GITHUB_OUTPUT"
 
-      - name: Attach exact assets to the release ID
+      - name: Attach exact assets to the draft release ID
+        if: steps.release.outputs.release-state == 'draft'
         env:
           RELEASE_ID: ${{ steps.release.outputs.release-id }}
         shell: bash
@@ -341,9 +352,10 @@ jobs:
               >/dev/null
           done
 
-      - name: Verify exact draft, publish, and read back final release
+      - name: Publish draft if needed and read back exact final release
         env:
           RELEASE_ID: ${{ steps.release.outputs.release-id }}
+          RELEASE_STATE: ${{ steps.release.outputs.release-state }}
         shell: bash
         run: |
           set -euo pipefail
@@ -354,15 +366,20 @@ jobs:
             | jq -Rsc 'split("\n") | map(select(length > 0)) | sort')"
           local_digests="$(for f in dist/*; do printf '%s\tsha256:%s\n' "$(basename "$f")" "$(sha256sum "$f" | awk '{print $1}')"; done | jq -Rsc 'split("\n") | map(select(length > 0) | split("\t") | {name:.[0],digest:.[1]}) | sort_by(.name)')"
 
-          draft="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
-          jq -e --argjson id "$RELEASE_ID" --arg tag "$RAN_RELEASE_TAG" --arg commit "$RAN_HISTORICAL_COMMIT" \
-            '.id == $id and .tag_name == $tag and .target_commitish == $commit and .draft == true and .prerelease == false' \
-            <<< "$draft" >/dev/null
-          test "$(jq -c '[.assets[].name] | sort' <<< "$draft")" = "$expected_names"
-          test "$(jq -c '[.assets[] | {name,digest}] | sort_by(.name)' <<< "$draft")" = "$local_digests"
+          if [[ "$RELEASE_STATE" == draft ]]; then
+            draft="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+            jq -e --argjson id "$RELEASE_ID" --arg tag "$RAN_RELEASE_TAG" --arg commit "$RAN_HISTORICAL_COMMIT" \
+              '.id == $id and .tag_name == $tag and .target_commitish == $commit and .draft == true and .prerelease == false' \
+              <<< "$draft" >/dev/null
+            test "$(jq -c '[.assets[].name] | sort' <<< "$draft")" = "$expected_names"
+            test "$(jq -c '[.assets[] | {name,digest}] | sort_by(.name)' <<< "$draft")" = "$local_digests"
 
-          jq -nc '{draft:false,prerelease:false,make_latest:"true"}' \
-            | gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --input - >/dev/null
+            jq -nc '{draft:false,prerelease:false,make_latest:"true"}' \
+              | gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --input - >/dev/null
+          elif [[ "$RELEASE_STATE" != published ]]; then
+            echo "::error::Unexpected reconciliation state: ${RELEASE_STATE}"
+            exit 1
+          fi
 
           verified=false
           for attempt in 1 2 3; do
