@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.4.1...v0.4.2) (2026-09-17)
+
+
+### Bug Fixes
+
+* **release:** retire historical dispatch workflow path ([#27](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues/27)) ([27c3cb9](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/27c3cb9294d681e406d56eb0b2d29f7616a15923))
+
 ## [0.4.1](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.4.0...v0.4.1) (2026-09-17)
 
 
