@@ -80,9 +80,9 @@ inventory.
 ```sh
 composer install --no-interaction
 composer validate --strict
-composer run phpcs
+composer check
 node scripts/make-pot.mjs
-WP_TESTS_DIR=/path/to/wordpress-tests-lib composer run test
+WP_TESTS_DIR=/path/to/wordpress-tests-lib composer run test:integration
 sh scripts/build-release.sh
 ```
 

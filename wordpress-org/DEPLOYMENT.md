@@ -1,21 +1,21 @@
 # Protected WordPress.org deployment
 
-GitHub releases are the canonical release source. The Release Please workflow
-builds the exact release tag, verifies the ZIP, and attaches the ZIP, SHA-256,
-and file manifest to the GitHub release. The protected deployment job downloads
-those assets again before staging WordPress.org SVN.
+GitHub's immutable release is the canonical source. Shared Profile B publishes
+only the exact Quality-tested ZIP and SHA-256 checksum. The repository manifest
+remains CI evidence. The downstream deployment observer requires the exact
+Release Please workflow success, immutable release and tag target, and exact
+GitHub asset digests before a protected SVN deployment.
 
 Routine deployment is disabled while `deployment.json` has `enabled: false`.
-Do not set a `wordpressOrgSlug`, add environment secrets, or enable routine
-deployment until WordPress.org has approved the manually submitted ZIP and
-assigned the real slug.
+Do not set a `wordpressOrgSlug`, add environment secrets, or enable
+deployment until WordPress.org has approved the submitted ZIP and assigned the
+real slug. Enabling requires a reviewed change to the committed contract.
+The protected `wordpress-org` environment supplies scoped
+`WORDPRESS_ORG_USERNAME` and `WORDPRESS_ORG_PASSWORD` only when deployment
+is enabled. Listing artwork sync is separately controlled by
+`syncListingAssets` in the committed contract.
 
-The one-time first deployment uses `workflow_dispatch` with an existing release
-tag and `deploy: true`. It may leave `enabled` false, but still requires approval
-through the `wordpress-org` GitHub Environment and its scoped
-`WORDPRESS_ORG_USERNAME` and `WORDPRESS_ORG_PASSWORD` secrets. Set
-`sync_assets: true` only for a deliberate listing-artwork sync.
-
-After the first public update is verified, set `enabled: true` to permit routine
-deployment following a newly created GitHub release. Listing artwork remains
-outside the installable ZIP and is never copied to SVN `trunk` or release tags.
+A failed or missing canonical release cannot be repaired by manual dispatch,
+tag rebuild, or asset replacement. Fix the source/build, qualify a fresh
+candidate, and publish a new immutable version and tag. Listing artwork stays
+outside the installable ZIP and SVN trunk.

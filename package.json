@@ -1,25 +1,25 @@
 {
-  "name": "ran-turnstile-for-jetpack-forms",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "lint:js": "eslint \"assets/**/*.js\" \"scripts/**/*.mjs\" \".github/scripts/**/*.mjs\"",
-    "format:check": "prettier --check \"assets/**/*.js\" \"scripts/**/*.mjs\" \".github/scripts/**/*.mjs\" eslint.config.mjs prettier.config.cjs package.json pnpm-workspace.yaml",
-    "check": "pnpm lint:js && pnpm format:check"
-  },
-  "devDependencies": {
-    "@babel/core": "7.29.7",
-    "@rocketsarenostalgic/quality-config": "github:RocketsAreNostalgic/ran-quality-config#751edd097e3902efb93992bf47401a1a4f4b1fa8",
-    "@wordpress/eslint-plugin": "25.7.0",
-    "@wordpress/prettier-config": "4.51.0",
-    "eslint": "9.39.5",
-    "prettier": "3.9.5",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
-  },
-  "engines": {
-    "node": ">=24.11.0 <25",
-    "pnpm": ">=11 <12"
-  },
-  "packageManager": "pnpm@11.13.1"
+	"name": "ran-turnstile-for-jetpack-forms",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"lint:js": "eslint \"assets/**/*.js\" \"scripts/**/*.mjs\" \".github/scripts/**/*.mjs\"",
+		"format:check": "prettier --check \"assets/**/*.js\" \"scripts/**/*.mjs\" \".github/scripts/**/*.mjs\" eslint.config.mjs prettier.config.cjs package.json pnpm-workspace.yaml",
+		"check": "pnpm lint:js && pnpm format:check"
+	},
+	"devDependencies": {
+		"@babel/core": "7.29.7",
+		"@rocketsarenostalgic/quality-config": "github:RocketsAreNostalgic/ran-quality-config#751edd097e3902efb93992bf47401a1a4f4b1fa8",
+		"@wordpress/eslint-plugin": "25.7.0",
+		"@wordpress/prettier-config": "4.51.0",
+		"eslint": "9.39.5",
+		"prettier": "3.9.5",
+		"react": "18.3.1",
+		"react-dom": "18.3.1"
+	},
+	"engines": {
+		"node": ">=24.11.0 <25",
+		"pnpm": ">=11 <12"
+	},
+	"packageManager": "pnpm@11.13.1"
 }

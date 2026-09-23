@@ -32,7 +32,7 @@ pnpm check
 node --check assets/turnstile.js
 node --check scripts/make-pot.mjs
 node scripts/make-pot.mjs
-WP_TESTS_DIR=/path/to/wordpress-tests-lib composer run test
+WP_TESTS_DIR=/path/to/wordpress-tests-lib composer run test:integration
 sh scripts/build-release.sh
 ```
 
@@ -55,14 +55,14 @@ This repository uses the RAN `wordpress-plugin` quality profile.
   runtime globals, and generated-file formatting exclusions. There is no CSS
   quality surface at present, so do not add Stylelint dependencies solely for
   profile symmetry.
-- `composer check` is the deterministic PHPCS source-quality contract consumed
+- `composer check` is the deterministic standards and PHP syntax contract consumed
   by the shared baseline. WordPress integration PHPUnit remains repository-owned.
 - `pnpm check` is the deterministic package-managed JavaScript/formatting quality
   contract consumed by the shared baseline. Node syntax checks, the Plugin Check
   filter tests, POT convergence, and Plugin Check itself remain specialist gates.
 - Canonical release-archive creation and identity proof, the WordPress/Jetpack
-  compatibility matrix, fresh-ZIP install/activation, release-workflow contract
-  checks, and the scoped Cloudflare Plugin Check acceptance policy remain
+  compatibility matrix, fresh-ZIP install/activation, and the scoped Cloudflare
+  Plugin Check acceptance policy remain
   repository-owned and must not be removed or weakened by shared-quality work.
 
 ## Commits and releases
