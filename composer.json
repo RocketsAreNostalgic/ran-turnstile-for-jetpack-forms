@@ -34,10 +34,14 @@
 	"scripts": {
 		"admin-shell:check": "ran-admin-shell check --config=ran-admin-shell.json --immutable",
 		"admin-shell:sync": "ran-admin-shell sync --config=ran-admin-shell.json",
-		"phpcs": "phpcs -p",
-		"phpcbf": "phpcbf -p",
-		"test": "phpunit",
-		"check": "@phpcs"
+		"check": [
+			"@standards",
+			"@lint:syntax"
+		],
+		"standards": "phpcs -p",
+		"standards:fix": "phpcbf -p",
+		"lint:syntax": "find . -path './vendor' -prune -o -type f -name '*.php' -print0 | xargs -0 -r -n1 php -l",
+		"test:integration": "phpunit"
 	},
 	"config": {
 		"allow-plugins": {
