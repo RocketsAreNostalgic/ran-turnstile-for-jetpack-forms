@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   baseline:
-    if: github.event_name == 'pull_request'
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     uses: RocketsAreNostalgic/.github/.github/workflows/quality-wordpress-plugin.yml@72a90b5826db37d1e94cdcdcf3374ccf58c0aa7d
     with:
       php-version: '8.5'
@@ -68,8 +68,7 @@ jobs:
       - name: Run cheap source and generated-file gates
         run: |
           composer validate --strict
-          composer run phpcs
-          find . -path './vendor' -prune -o -type f -name '*.php' -exec php -l {} \;
+          composer check
           node --check assets/turnstile.js
           node --check scripts/make-pot.mjs
           node --check .github/scripts/filter-plugin-check-results.mjs
@@ -77,12 +76,11 @@ jobs:
           node scripts/make-pot.mjs
           git diff --exit-code -- languages/ran-turnstile-for-jetpack-forms.pot
           grep -Fq 'tools: composer:v2, wp-cli' .github/workflows/quality.yml
-          grep -Fq "github.event_name == 'pull_request'" .github/workflows/quality.yml
-          # These single-quoted patterns are literal workflow contracts.
-          # shellcheck disable=SC2016
-          grep -Fq 'git log -1 --format=%H "$RAN_QUALITY_COMMIT" -- .release-please-manifest.json' .github/workflows/release-publisher.yml
-          # shellcheck disable=SC2016
-          grep -Fq 'git rev-parse "${RAN_QUALITY_COMMIT}^{tree}"' .github/workflows/release-publisher.yml
+          jq -e '.draft == true and .["force-tag-creation"] == true and .["skip-github-release"] != true' release-please-config.json >/dev/null
+          grep -Fq 'release-profile-b.yml@e2fb19244a301a62f8fae2a80536898adf21fe22' .github/workflows/release-please.yml
+          grep -Fq 'artifact-prefix: ran-turnstile-for-jetpack-forms-release' .github/workflows/release-please.yml
+          test ! -e .github/workflows/release-publisher.yml
+          grep -Fq 'ran-profile-b-promotion.json' .github/workflows/quality.yml
 
       - name: Build and verify the canonical release assets once
         id: release
@@ -104,6 +102,9 @@ jobs:
               && "$RAN_PR_BASE" == main \
               && "$RAN_PR_HEAD" == 'release-please--branches--main--components--ran-turnstile-for-jetpack-forms' \
               && "$RAN_PR_HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]]; then
+              release_candidate=true
+          elif [[ "$GITHUB_EVENT_NAME" == workflow_dispatch \
+              && "$GITHUB_REF_NAME" == 'release-please--branches--main--components--ran-turnstile-for-jetpack-forms' ]]; then
               release_candidate=true
           fi
 
@@ -198,7 +199,7 @@ jobs:
         run: bash scripts/install-wp-tests.sh wordpress_test root root 127.0.0.1 ${{ matrix.wordpress }}
 
       - name: Run WordPress integration tests
-        run: WP_TESTS_DIR=/tmp/wordpress-tests-lib composer run test
+        run: WP_TESTS_DIR=/tmp/wordpress-tests-lib composer run test:integration
 
       - name: Install and activate the shared release ZIP in fresh WordPress
         run: |
@@ -345,7 +346,7 @@ jobs:
         run: wp-env destroy --force
 
   quality-gate:
-    if: always() && github.event_name == 'pull_request'
+    if: ${{ (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && always() }}
     name: quality
     needs:
       - baseline
