@@ -41,7 +41,10 @@ test('WordPress.org observer admits only the exact successful release workflow',
 		observer,
 		/on:\n  workflow_run:\n    workflows: \[Release Please\]\n    types: \[completed\]\n    branches: \[main\]/
 	);
-	assert.doesNotMatch(observer, /workflow_dispatch|--allow-disabled|--clobber/);
+	assert.doesNotMatch(
+		observer,
+		/workflow_dispatch|--allow-disabled|--clobber/
+	);
 	assert.match(observer, /permissions: \{\}/);
 	const predicate = contract.match(/if: >-\n\s+\$\{\{([\s\S]*?)\}\}/)?.[1];
 	assert.ok(predicate, 'Expected a contract admission predicate');
