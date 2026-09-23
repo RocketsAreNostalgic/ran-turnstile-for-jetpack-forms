@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.3](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.4.2...v0.4.3) (2026-09-23)
+
+
+### Bug Fixes
+
+* **release:** adopt shared Profile B lifecycle ([#31](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues/31)) ([a4ccec6](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/a4ccec65af8cfa85a9c2ddb1791a9c86a4507c5f))
+
 ## [0.4.2](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.4.1...v0.4.2) (2026-09-17)
 
 
