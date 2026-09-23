@@ -41,7 +41,8 @@
 		"standards": "phpcs -p",
 		"standards:fix": "phpcbf -p",
 		"lint:syntax": "bash scripts/lint-php-syntax.sh",
-		"test:integration": "phpunit"
+		"test": "phpunit",
+		"test:integration": "@test"
 	},
 	"config": {
 		"allow-plugins": {
