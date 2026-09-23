@@ -96,15 +96,14 @@ jobs:
           version="${TAG_NAME#v}"
           archive="ran-turnstile-for-jetpack-forms-${version}.zip"
           checksum="${archive}.sha256"
-          manifest="ran-turnstile-for-jetpack-forms-${version}.manifest.json"
           mkdir -p dist
-          for asset in "$archive" "$checksum" "$manifest"; do gh release download "$TAG_NAME" --pattern "$asset" --dir dist --repo "$GITHUB_REPOSITORY"; done
-          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 3
+          for asset in "$archive" "$checksum"; do gh release download "$TAG_NAME" --pattern "$asset" --dir dist --repo "$GITHUB_REPOSITORY"; done
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 2
           release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}")"
           jq -e --arg commit "$ADMITTED_SHA" --arg tag "$TAG_NAME" '.tag_name == $tag and .target_commitish == $commit and .draft == false and .immutable == true' <<< "$release_json" >/dev/null
-          expected="$(printf '%s\n' "$archive" "$checksum" "$manifest" | jq -Rsc 'split("\n") | map(select(length > 0)) | sort')"
+          expected="$(printf '%s\n' "$archive" "$checksum" | jq -Rsc 'split("\n") | map(select(length > 0)) | sort')"
           test "$(jq -c '[.assets[].name] | sort' <<< "$release_json")" = "$expected"
-          for name in "$archive" "$checksum" "$manifest"; do
+          for name in "$archive" "$checksum"; do
             local_digest="sha256:$(sha256sum "dist/${name}" | awk '{ print $1 }')"
             remote_digest="$(jq -er --arg name "$name" '[.assets[] | select(.name == $name)] | if length == 1 then .[0].digest else error("Expected one exact release asset.") end' <<< "$release_json")"
             test "$local_digest" = "$remote_digest"
@@ -117,4 +116,4 @@ jobs:
           version="${TAG_NAME#v}"
           options=()
           [[ "$SYNC_LISTING_ASSETS" == true ]] && options+=(--sync-assets)
-          bash scripts/deploy-wordpress-org.sh "dist/ran-turnstile-for-jetpack-forms-${version}.zip" "dist/ran-turnstile-for-jetpack-forms-${version}.zip.sha256" "dist/ran-turnstile-for-jetpack-forms-${version}.manifest.json" "${options[@]}"
+          bash scripts/deploy-wordpress-org.sh "dist/ran-turnstile-for-jetpack-forms-${version}.zip" "dist/ran-turnstile-for-jetpack-forms-${version}.zip.sha256" "${options[@]}"
