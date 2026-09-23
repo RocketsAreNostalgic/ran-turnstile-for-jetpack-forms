@@ -5,7 +5,7 @@
 	"scripts": {
 		"lint:js": "eslint \"assets/**/*.js\" \"scripts/**/*.mjs\" \".github/scripts/**/*.mjs\"",
 		"format:check": "prettier --check \"assets/**/*.js\" \"scripts/**/*.mjs\" \".github/scripts/**/*.mjs\" eslint.config.mjs prettier.config.cjs package.json pnpm-workspace.yaml",
-		"check": "pnpm lint:js && pnpm format:check"
+		"check": "pnpm lint:js && pnpm format:check && node --test scripts/release-boundary.test.mjs"
 	},
 	"devDependencies": {
 		"@babel/core": "7.29.7",

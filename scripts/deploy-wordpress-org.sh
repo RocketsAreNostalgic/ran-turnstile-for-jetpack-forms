@@ -36,7 +36,7 @@ version="${version%.zip}"
 tag_commit=$(git -C "$root" rev-parse HEAD)
 test "$(basename "$archive")" = "ran-turnstile-for-jetpack-forms-${version}.zip"
 test "$(basename "$checksum")" = "$(basename "$archive").sha256"
-test "$(sed -n 's/^[[:space:]]*\*[[:space:]]*Version:[[:space:]]*\([^[:space:]]*\).*$/\\1/p' "$root/$main_plugin_file")" = "$version"
+test "$(sed -n 's/^[[:space:]]*\*[[:space:]]*Version:[[:space:]]*\([^[:space:]]*\).*$/\1/p' "$root/$main_plugin_file")" = "$version"
 test "$(jq -er '."." | select(type == "string")' "$root/.release-please-manifest.json")" = "$version"
 
 (
