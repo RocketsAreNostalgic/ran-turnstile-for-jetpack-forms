@@ -18,9 +18,8 @@ behaviour that cannot be established by source checks alone.
 - [ ] GitHub Actions is allowed to create pull requests for Release Please, and
       the release workflow uses the repository `GITHUB_TOKEN` rather than a
       personal token.
-- [ ] The release workflow can also be dispatched manually with an existing
-      `v<version>` tag, but WordPress.org deployment remains disabled until
-      `wordpress-org/deployment.json` is deliberately enabled.
+- [ ] The release candidate has exact successful Quality and the downstream
+      WordPress.org deployment contract remains disabled unless deliberately enabled.
 
 ## Source and archive gates
 
@@ -29,12 +28,12 @@ behaviour that cannot be established by source checks alone.
 ```sh
 composer install --no-interaction
 composer validate --strict
-composer run phpcs
+composer check
 node --check assets/turnstile.js
 node --check scripts/make-pot.mjs
 node scripts/make-pot.mjs
 git diff --exit-code -- languages/ran-turnstile-for-jetpack-forms.pot
-WP_TESTS_DIR=/path/to/wordpress-tests-lib composer run test
+WP_TESTS_DIR=/path/to/wordpress-tests-lib composer run test:integration
 sh scripts/build-release.sh
 ```
 
@@ -49,8 +48,8 @@ sh scripts/build-release.sh
       configuration, credentials, caches, logs, and prior release artifacts.
 - [ ] The ZIP filename, embedded plugin header, runtime constant, readme stable
       tag, and POT project version all match the proposed release.
-- [ ] The GitHub release assets include the ZIP, checksum, and sorted JSON
-      manifest for the exact tagged commit.
+- [ ] The immutable GitHub release has exactly the qualified ZIP and checksum;
+      the repository manifest stays in the exact Quality artifact as CI evidence.
 - [ ] Install and activate the ZIP in a clean WordPress installation with the
       supported Jetpack version active. Confirm activation produces no PHP
       notices or fatal errors and **Settings > RAN Turnstile** is available.

@@ -1,0 +1,22 @@
+name: Release Please
+
+on:
+  workflow_run:
+    workflows: [Quality]
+    types: [completed]
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  release:
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
+    uses: RocketsAreNostalgic/.github/.github/workflows/release-profile-b.yml@e2fb19244a301a62f8fae2a80536898adf21fe22
+    with:
+      expected-workflow-path: .github/workflows/quality.yml
+      release-pr-head: release-please--branches--main--components--ran-turnstile-for-jetpack-forms
+      artifact-prefix: ran-turnstile-for-jetpack-forms-release

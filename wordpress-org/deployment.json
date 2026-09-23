@@ -7,5 +7,6 @@
 	"archivePath": "dist/ran-turnstile-for-jetpack-forms-{version}.zip",
 	"buildCommand": "sh scripts/build-release.sh \"$OUTPUT_DIRECTORY\"",
 	"verifyCommand": "sh scripts/verify-release.sh",
-	"listingAssetsDirectory": "wordpress-org/assets"
+	"listingAssetsDirectory": "wordpress-org/assets",
+	"syncListingAssets": false
 }

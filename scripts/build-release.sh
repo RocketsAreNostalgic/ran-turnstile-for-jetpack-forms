@@ -43,9 +43,7 @@ fi
 composer admin-shell:check
 node --check assets/turnstile.js
 node --check scripts/make-pot.mjs
-find includes -name '*.php' -print0 | xargs -0 -n 1 php -l
-php -l ran-turnstile-for-jetpack-forms.php
-composer run phpcs
+composer check
 
 cp languages/ran-turnstile-for-jetpack-forms.pot "$pot_before"
 

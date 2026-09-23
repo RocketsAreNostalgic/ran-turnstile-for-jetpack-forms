@@ -39,43 +39,21 @@ Before merging the release PR:
 4. Build and inspect the allowlisted release ZIP.
 5. Merge the release PR only after the candidate is ready.
 
-Merging the release PR first runs Quality against the merge commit. The release
-workflow then verifies the exact merged Release Please PR, downloads the ZIP,
-checksum, and manifest produced by that successful Quality run, publishes them
-through a draft GitHub Release, and reads the tag, release, and assets back.
-Release Please does not publish to WordPress.org or deploy a release to any
-WordPress site.
+The shared Profile B workflow admits exact successful main Quality, opens or
+updates the Release Please PR, and qualifies its exact candidate with bounded
+Quality. Merge the release PR only after its required checks and review pass.
+The merged main Quality builds the ZIP, checksum, and repository manifest once
+and records their digests in the promotion manifest. Profile B retrieves that
+exact run and attempt artifact, verifies the promotion manifest and bytes,
+consumes the exact Release Please draft identity, uploads only the ZIP and
+checksum, publishes an immutable GitHub release, and reads back the tag target,
+asset digests, and immutable flag.
 
-The explicit manual-dispatch path can rebuild a canonical ZIP, SHA-256
-checksum, and JSON manifest from an exact existing tag for recovery or a
-separately approved WordPress.org deployment. WordPress.org deployment stays
-disabled in source control until the deployment contract is deliberately
-enabled.
-
-Manual recovery is admitted from protected `main`. That checked-in ref guard
-prevents accidental recovery from another selected dispatch ref but is
-defence-in-depth rather than independent authorization against a workflow
-author. Organisation-level workflow execution authority is tracked separately
-under `RocketsAreNostalgic/.github#24`.
-
-Published GitHub releases intentionally remain mutable only for this bounded
-recovery case. Historical repository code is checked out, validated, and used
-to rebuild the three canonical assets in a separate job with no repository
-token permissions. Those rebuilt files cross into a fresh write-capable job
-only as a workflow artifact; the publisher does not check out or execute the
-historical repository source. The workflow artifact name is stable for the
-workflow run so a failed publisher job can reuse a successful build on a later
-run attempt; a rerun of the build replaces that same-run artifact deliberately.
-Before replacement, the fresh publisher resolves the live Git tag (peeling
-annotated tags to their commit) and existing GitHub release and requires both to
-identify the exact commit recorded in the rebuilt manifest. It also verifies
-the manifest, archive checksum, tag, version, source commit, release mutability,
-and existing asset boundary before replacement. Asset deletion and upload are
-bound to that prevalidated release ID rather than resolving the mutable tag
-again. After replacement the publisher re-reads the same release and tag,
-requires the exact manifest/ZIP/checksum asset set, and compares GitHub's
-SHA-256 digest for every published asset with the rebuilt local file. Any
-identity, target, asset-set, or digest mismatch fails closed.
+The repository manifest stays in CI evidence; it is not a public release
+asset. Missing or incorrect release bytes require a source or build fix, fresh
+qualification, and a new version and tag. Historical tag rebuilds and mutable
+release recovery are unavailable. WordPress.org is a separate optional
+downstream adapter and remains disabled by committed deployment policy.
 
 ## Release archive
 
@@ -99,14 +77,6 @@ CI builds the release assets once, then reuses that exact archive for the
 supported compatibility lanes, Plugin Check, clean-install activation with
 Jetpack, and GitHub publication. The release workflow accepts only the artifact
 from the successful same-repository Quality run for the exact `main` commit.
-
-For manual WordPress.org publication or recovery, dispatch the release workflow
-from protected `main` with an existing `v<version>` tag. The credential-free
-build job checks out and rebuilds that exact tag, then a fresh publisher job
-independently binds the artifact and replacement to the live tag, exact release
-ID, and release target before replacing only the expected three GitHub release
-assets. The publisher verifies the final target and SHA-256 digests before any
-separately approved protected SVN action can consume them.
 
 ## WordPress.org publication
 
