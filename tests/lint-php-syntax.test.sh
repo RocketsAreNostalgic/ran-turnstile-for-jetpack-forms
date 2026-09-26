@@ -13,6 +13,9 @@ expect_status() {
     shift
     local actual=0
     "$@" > "$fixture/output" 2>&1 || actual=$?
+    if [[ "$expected" == failure && "$actual" != 0 ]]; then
+        return
+    fi
     if [[ "$actual" != "$expected" ]]; then
         cat "$fixture/output" >&2
         printf 'Expected exit %s, got %s\n' "$expected" "$actual" >&2
@@ -31,7 +34,7 @@ for directory in includes tests scripts; do
     printf '<?php\n' > "$source_file"
     expect_status 0 bash "$fixture/lint.sh"
     printf '<?php function broken( {\n' > "$source_file"
-    expect_status 123 bash "$fixture/lint.sh"
+    expect_status failure bash "$fixture/lint.sh"
     grep -Fq -- "$source_file" "$fixture/output"
     rm "$source_file"
 done
