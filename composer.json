@@ -36,13 +36,15 @@
 		"admin-shell:sync": "ran-admin-shell sync --config=ran-admin-shell.json",
 		"check": [
 			"@standards",
-			"@lint:syntax"
+			"@lint:syntax",
+			"@test:quality"
 		],
 		"standards": "phpcs -p",
 		"standards:fix": "phpcbf -p",
 		"lint:syntax": "bash scripts/lint-php-syntax.sh",
 		"test": "phpunit",
-		"test:integration": "@test"
+		"test:integration": "@test",
+		"test:quality": "bash tests/lint-php-syntax.test.sh"
 	},
 	"config": {
 		"allow-plugins": {
