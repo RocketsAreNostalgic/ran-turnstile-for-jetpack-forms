@@ -18,10 +18,19 @@
 			</property>
 		</properties>
 	</rule>
+	<!-- Preserve exact class-loader filenames if shared filename policy tightens. -->
 	<rule ref="WordPress.Files.FileName.NotHyphenatedLowercase">
-		<severity>0</severity>
+		<exclude-pattern>*/includes/Admin.php</exclude-pattern>
+		<exclude-pattern>*/includes/HealthCheck.php</exclude-pattern>
+		<exclude-pattern>*/includes/Plugin.php</exclude-pattern>
+		<exclude-pattern>*/includes/Settings.php</exclude-pattern>
+		<exclude-pattern>*/includes/Turnstile.php</exclude-pattern>
 	</rule>
 	<rule ref="WordPress.Files.FileName.InvalidClassFileName">
-		<severity>0</severity>
+		<exclude-pattern>*/includes/Admin.php</exclude-pattern>
+		<exclude-pattern>*/includes/HealthCheck.php</exclude-pattern>
+		<exclude-pattern>*/includes/Plugin.php</exclude-pattern>
+		<exclude-pattern>*/includes/Settings.php</exclude-pattern>
+		<exclude-pattern>*/includes/Turnstile.php</exclude-pattern>
 	</rule>
 </ruleset>
