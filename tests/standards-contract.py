@@ -7,6 +7,11 @@ import shutil
 import subprocess
 import tempfile
 
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
 ROOT = Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix="turnstile-standards-") as directory:
     root = Path(directory)
@@ -25,12 +30,12 @@ with tempfile.TemporaryDirectory(prefix="turnstile-standards-") as directory:
                 for p in root.rglob("*.php")}
 
     result = run()
-    assert result.returncode == 0, result.stdout + result.stderr
+    require(result.returncode == 0, result.stdout + result.stderr)
     clean = snapshot()
     for _ in range(2):
         result = run("phpcbf")
-        assert result.returncode == 0, result.stdout + result.stderr
-        assert snapshot() == clean
+        require(result.returncode == 0, result.stdout + result.stderr)
+        require(snapshot() == clean, "Quality contract failed")
 
     # All three selected roots must reject and fix ordinary formatting errors.
     for relative in ("ran-turnstile-for-jetpack-forms.php", "includes/Settings.php", "tests/phpstan/bootstrap.php"):
@@ -39,15 +44,15 @@ with tempfile.TemporaryDirectory(prefix="turnstile-standards-") as directory:
         try:
             path.write_bytes(original + b"\n$quality_probe = array(1,2);\n")
             result = run()
-            assert result.returncode != 0, relative
+            require(result.returncode != 0, relative)
             result = run("phpcbf")
-            assert result.returncode in (0, 1), result.stdout + result.stderr
+            require(result.returncode in (0, 1), result.stdout + result.stderr)
             fixed = snapshot()
             result = run()
-            assert result.returncode == 0, result.stdout + result.stderr
+            require(result.returncode == 0, result.stdout + result.stderr)
             result = run("phpcbf")
-            assert result.returncode == 0, result.stdout + result.stderr
-            assert snapshot() == fixed
+            require(result.returncode == 0, result.stdout + result.stderr)
+            require(snapshot() == fixed, "Quality contract failed")
         finally:
             path.write_bytes(original)
 print("Config-driven scope and repeatable fixes passed.")
