@@ -39,6 +39,15 @@ for directory in includes tests scripts; do
     rm "$source_file"
 done
 
+# Maintained PHP configuration templates are copied verbatim into the test host.
+source_file='tests/wp-tests-config.php.template'
+printf '<?php\n' > "$source_file"
+expect_status 0 bash "$fixture/lint.sh"
+printf '<?php function broken( {\n' > "$source_file"
+expect_status failure bash "$fixture/lint.sh"
+grep -Fq -- "$source_file" "$fixture/output"
+rm "$source_file"
+
 # Third-party and Git internals must not be parsed as first-party PHP.
 printf '<?php\n' > clean.php
 for directory in vendor node_modules .git; do

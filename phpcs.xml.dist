@@ -5,6 +5,7 @@
 	<file>ran-turnstile-for-jetpack-forms.php</file>
 	<file>tests</file>
 	<exclude-pattern>vendor/*</exclude-pattern>
+	<arg name="extensions" value="php,template/php"/>
 	<arg name="basepath" value="."/>
 	<arg name="colors"/>
 	<arg value="sp"/>
