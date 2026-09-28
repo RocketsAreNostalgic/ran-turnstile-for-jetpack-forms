@@ -47,7 +47,10 @@
 		"lint:syntax": "bash scripts/lint-php-syntax.sh",
 		"test": "phpunit",
 		"test:integration": "@test",
-		"test:quality": "bash tests/lint-php-syntax.test.sh",
+		"test:quality": [
+			"bash tests/lint-php-syntax.test.sh",
+			"python3 tests/standards-contract.py"
+		],
 		"analyze": "@php vendor/bin/phpstan analyse --configuration=phpstan.neon.dist --no-progress --memory-limit=512M"
 	},
 	"config": {

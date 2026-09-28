@@ -6,7 +6,7 @@ PHPCS and PHPCBF share `phpcs.xml.dist`: the plugin entrypoint, `includes/`
 and `tests/` use the same RAN WordPress rules, PHP 8.0+ compatibility target
 and local filename exceptions. The generated Admin Shell copy is checked by
 its separate immutable-content contract; this slice changes neither its
-dependency lock nor its generated content. No PHP-CS-Fixer is configured.
+locked package reference nor its generated content. No PHP-CS-Fixer is configured.
 
 `composer check` runs standards, PHP syntax, `test:quality` and `analyze`. The syntax
 runner discovers PHP recursively while pruning root `vendor/`, `node_modules/`
@@ -48,3 +48,17 @@ Native integration, installed ZIP, frontend, generated POT and Plugin Check
 remain required before acceptance. Static analysis does not replace WordPress
 execution or the deferred owner-held interactive UI verification. Final exact-head
 review/CI and formatter/exception evidence are recorded in issue #30.
+
+## Formatter and exception acceptance
+
+Redundant local filename severity overrides are removed. The locked shared
+RANWordPress profile already excludes WordPress's filename conventions to support
+namespaced class loaders. This repository adds no wider filename waiver and does
+not claim enforcement absent from the shared profile. Existing class-loader paths
+and all generated Admin Shell bytes remain unchanged.
+
+The ordinary `test:quality` gate also runs Python 3 controls against the actual
+configured PHPCS/PHPCBF binaries: all three first-party roots reject formatting
+defects, the canonical fixer repairs them and repeated passes are byte-stable.
+No production source is mutated by these disposable-fixture tests. There is no
+parallel PHP formatter to retire; WordPress/database tests remain native gates.

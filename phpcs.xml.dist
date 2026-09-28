@@ -18,10 +18,4 @@
 			</property>
 		</properties>
 	</rule>
-	<rule ref="WordPress.Files.FileName.NotHyphenatedLowercase">
-		<severity>0</severity>
-	</rule>
-	<rule ref="WordPress.Files.FileName.InvalidClassFileName">
-		<severity>0</severity>
-	</rule>
 </ruleset>
