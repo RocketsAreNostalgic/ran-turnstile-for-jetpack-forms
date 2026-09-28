@@ -63,3 +63,9 @@ configured PHPCS/PHPCBF binaries: all three first-party roots reject formatting
 defects, the canonical fixer repairs them and repeated passes are byte-stable.
 No production source is mutated by these disposable-fixture tests. There is no
 parallel PHP formatter to retire; WordPress/database tests remain native gates.
+
+Maintained `tests/wp-tests-config.php.template` is explicitly included in syntax
+and PHP-tokenized PHPCS/PHPCBF selection. Actual-command regressions introduce
+malformed PHP and formatting defects in this template, and snapshot repeatability
+includes its bytes. Its `$table_prefix` assignment has one narrow exception because
+WordPress requires that configuration global; other template checks remain active.

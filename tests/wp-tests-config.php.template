@@ -12,6 +12,7 @@ define( 'DB_HOST', '{{DB_HOST}}' );
 define( 'DB_CHARSET', 'utf8' );
 define( 'DB_COLLATE', '' );
 
+// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Required WordPress test-database configuration global.
 $table_prefix = 'wptests_';
 
 define( 'ABSPATH', '{{WP_CORE_DIR}}/' );
