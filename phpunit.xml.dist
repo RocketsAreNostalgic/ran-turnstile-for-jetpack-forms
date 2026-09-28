@@ -3,6 +3,7 @@
 	<testsuites>
 		<testsuite name="RAN Turnstile for Jetpack Forms">
 			<directory suffix=".php">tests</directory>
+			<exclude>tests/phpstan</exclude>
 		</testsuite>
 	</testsuites>
 </phpunit>
