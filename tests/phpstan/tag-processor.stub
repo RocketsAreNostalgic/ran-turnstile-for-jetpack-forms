@@ -1,0 +1,13 @@
+<?php
+/**
+ * WordPress 6.5 next_tag accepts a string shorthand, missing from the generated stub.
+ * Source: wordpress-develop/6.5/src/wp-includes/html-api/class-wp-html-tag-processor.php.
+ * This file is analyzed only and never loaded by the plugin or integration tests.
+ */
+class WP_HTML_Tag_Processor {
+	/**
+	 * @param string|array{tag_name?: string|null, match_offset?: int|null, class_name?: string|null, tag_closers?: string|null}|null $query
+	 * @return bool
+	 */
+	public function next_tag( $query = null ) {}
+}

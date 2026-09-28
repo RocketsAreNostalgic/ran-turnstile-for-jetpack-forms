@@ -55,7 +55,7 @@ This repository uses the RAN `wordpress-plugin` quality profile.
   runtime globals, and generated-file formatting exclusions. There is no CSS
   quality surface at present, so do not add Stylelint dependencies solely for
   profile symmetry.
-- `composer check` is the deterministic standards, PHP syntax and syntax-regression contract consumed
+- `composer check` is the deterministic standards, PHP syntax, syntax-regression and static-analysis contract consumed
   by the shared baseline. WordPress integration PHPUnit remains repository-owned.
 - `pnpm check` is the deterministic package-managed JavaScript/formatting quality
   contract consumed by the shared baseline. Node syntax checks, the Plugin Check
