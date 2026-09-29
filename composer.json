@@ -49,7 +49,8 @@
 		"test:integration": "@test",
 		"test:quality": [
 			"bash tests/lint-php-syntax.test.sh",
-			"python3 tests/standards-contract.py"
+			"python3 tests/standards-contract.py",
+			"python3 tests/phpstan-source-coverage.py"
 		],
 		"analyze": "@php vendor/bin/phpstan analyse --configuration=phpstan.neon.dist --no-progress --memory-limit=512M"
 	},

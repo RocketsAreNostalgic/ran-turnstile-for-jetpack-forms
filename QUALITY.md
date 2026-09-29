@@ -34,6 +34,11 @@ and 512 MB limit. Its direct roots cover the plugin entrypoint and all PHP in
 `includes/`, including the shipped generated Admin Shell copy. The immutable
 Admin Shell parity gate remains separately required. Tests use WordPress/database
 execution and syntax/standards gates; they are not production analysis roots.
+The required source-coverage test expands the actual release allowlist and
+requires every shipped PHP file to fall under a direct PHPStan path. Its
+disposable negative fixture adds a root PHP file to a release manifest and
+proves that the file is rejected until the analysis scope is updated. A new
+file inside `includes/` is already covered by the recursive root.
 
 The locked WordPress 6.5-generation stubs supply symbols only. Analysis bootstrap
 constants model the runtime-derived plugin paths and WordPress duration constant
