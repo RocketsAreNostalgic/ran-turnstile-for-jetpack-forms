@@ -25,7 +25,7 @@ jobs:
 
   quality:
     name: Quality and release artifact
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     outputs:
       artifact-name: ${{ steps.release.outputs.artifact-name }}
       matrix: ${{ steps.release.outputs.matrix }}
@@ -153,7 +153,7 @@ jobs:
   compatibility:
     name: PHP ${{ matrix.php }} / WordPress ${{ matrix.wordpress }} / Jetpack ${{ matrix.jetpack }}
     needs: quality
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     services:
       mysql:
         image: mysql:8.0
@@ -262,7 +262,7 @@ jobs:
   plugin-check:
     name: Plugin Check
     needs: quality
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     env:
       PLUGIN_CHECK_CORE_REF: WordPress/WordPress#7.0.3
       PLUGIN_CHECK_SLUG: ran-turnstile-for-jetpack-forms
