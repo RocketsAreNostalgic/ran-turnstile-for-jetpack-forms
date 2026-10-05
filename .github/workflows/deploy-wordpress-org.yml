@@ -109,6 +109,12 @@ jobs:
             test "$local_digest" = "$remote_digest"
           done
           (cd dist && sha256sum --check --strict "$checksum")
+      - name: Install Subversion
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends subversion
+          svn --version --quiet
       - name: Deploy verified immutable release to protected SVN
         shell: bash
         run: |
