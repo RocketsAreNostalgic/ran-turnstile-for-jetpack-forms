@@ -24,7 +24,7 @@ jobs:
         && github.event.workflow_run.head_repository.id == github.repository_id
         && github.event.workflow_run.path == '.github/workflows/release-please.yml'
       }}
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     outputs:
@@ -70,7 +70,7 @@ jobs:
     name: Deploy exact GitHub release to WordPress.org
     needs: contract
     if: ${{ needs.contract.outputs.deploy-required == 'true' && needs.contract.outputs.enabled == 'true' }}
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     environment: wordpress-org
