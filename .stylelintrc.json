@@ -1,0 +1,7 @@
+{
+	"extends": ["@rocketsarenostalgic/quality-config/stylelint/wordpress"],
+	"ignoreFiles": ["assets/ran-admin-shell.css"],
+	"rules": {
+		"selector-class-pattern": "^([a-z][a-z0-9]*)(-[a-z0-9]+)*(?:__[a-z0-9]+(?:-[a-z0-9]+)*)?$"
+	}
+}

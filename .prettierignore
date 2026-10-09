@@ -7,3 +7,6 @@ CHANGELOG.md
 composer.lock
 pnpm-lock.yaml
 languages/*.pot
+
+# Generated from the immutable Admin Shell dependency; checked by Composer parity.
+assets/ran-admin-shell.css
