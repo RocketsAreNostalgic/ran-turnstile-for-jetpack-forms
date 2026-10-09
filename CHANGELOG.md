@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.4](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.4.3...v0.4.4) (2026-10-09)
+
+
+### Bug Fixes
+
+* synchronize admin shell notice spacing and align Node tooling ([#41](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/issues/41)) ([17712c9](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/commit/17712c95f3293df23439c02d97fe5fc5ef7c6e14))
+
 ## [0.4.3](https://github.com/RocketsAreNostalgic/ran-turnstile-for-jetpack-forms/compare/v0.4.2...v0.4.3) (2026-09-23)
 
 
