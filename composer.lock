@@ -1346,12 +1346,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/RocketsAreNostalgic/ran-admin-shell.git",
-                "reference": "60f3791e4a5b700e4601ec6e1fc872eeb3ed7b49"
+                "reference": "24d05d834ab73302dab29aa2671b8e1f7285af40"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/RocketsAreNostalgic/ran-admin-shell/zipball/60f3791e4a5b700e4601ec6e1fc872eeb3ed7b49",
-                "reference": "60f3791e4a5b700e4601ec6e1fc872eeb3ed7b49",
+                "url": "https://api.github.com/repos/RocketsAreNostalgic/ran-admin-shell/zipball/24d05d834ab73302dab29aa2671b8e1f7285af40",
+                "reference": "24d05d834ab73302dab29aa2671b8e1f7285af40",
                 "shasum": ""
             },
             "require": {
@@ -1362,9 +1362,13 @@
             },
             "require-dev": {
                 "dealerdirect/phpcodesniffer-composer-installer": "^1.1",
-                "phpcompatibility/php-compatibility": "^9.3",
+                "php-stubs/wordpress-stubs": "~6.5.0",
+                "phpcompatibility/php-compatibility": "10.0.0-alpha2",
+                "phpcompatibility/phpcompatibility-paragonie": "2.0.0-alpha2",
+                "phpcompatibility/phpcompatibility-wp": "3.0.0-alpha2",
+                "phpstan/phpstan": "^2.1",
                 "phpunit/phpunit": "^9.6",
-                "wp-coding-standards/wpcs": "^3.1"
+                "ran/coding-standards": "^1.0"
             },
             "default-branch": true,
             "bin": [
@@ -1372,15 +1376,31 @@
             ],
             "type": "library",
             "scripts": {
-                "phpcs": [
-                    "phpcs -p"
+                "check:coverage": [
+                    "@php tools/check-coverage.php"
+                ],
+                "lint:syntax": [
+                    "@php tools/lint-syntax.php"
+                ],
+                "standards": [
+                    "phpcs -p",
+                    "phpcs --standard=phpcs-tooling.xml.dist -p"
+                ],
+                "standards:fix": [
+                    "@php tools/fix-standards.php"
                 ],
                 "test": [
                     "phpunit --configuration phpunit.xml.dist"
                 ],
                 "check": [
-                    "@test",
-                    "@phpcs"
+                    "@check:coverage",
+                    "@lint:syntax",
+                    "@standards",
+                    "@analyze",
+                    "@test"
+                ],
+                "analyze": [
+                    "@php vendor/bin/phpstan analyse --configuration=phpstan.neon.dist --no-progress --memory-limit=512M"
                 ]
             },
             "license": [
@@ -1391,7 +1411,7 @@
                 "source": "https://github.com/RocketsAreNostalgic/ran-admin-shell/tree/main",
                 "issues": "https://github.com/RocketsAreNostalgic/ran-admin-shell/issues"
             },
-            "time": "2026-08-12T08:52:58+00:00"
+            "time": "2026-10-07T20:14:12+00:00"
         },
         {
             "name": "ran/coding-standards",
@@ -2783,5 +2803,5 @@
     "platform-overrides": {
         "php": "8.0.30"
     },
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }
