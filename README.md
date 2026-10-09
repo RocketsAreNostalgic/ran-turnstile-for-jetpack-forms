@@ -96,3 +96,12 @@ Report bugs and reproducible problems through
 
 RAN Turnstile for Jetpack Forms is licensed under
 [GPL-2.0-or-later](LICENSE).
+
+## WordPress frontend baseline
+
+Shared candidate `3633371011f05dcea8bf8e13e2ca3005cb4e1d8f` supplies the
+owner-approved upstream WordPress CSS baseline: config 26.1.0, Stylelint 17.14.1
+and Stylelint-SCSS 7.2.0. The canonical check now includes maintained admin CSS.
+The existing BEM element classes remain a local class-name exception. Generated
+Admin Shell CSS remains owned by its Composer parity contract. This tooling
+adoption does not change product behavior, PHP standards or UI/release holds.

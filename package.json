@@ -4,18 +4,22 @@
 	"type": "module",
 	"scripts": {
 		"lint:js": "eslint \"assets/**/*.js\" \"scripts/**/*.mjs\" \".github/scripts/**/*.mjs\"",
-		"format:check": "prettier --check \"assets/**/*.js\" \"scripts/**/*.mjs\" \".github/scripts/**/*.mjs\" eslint.config.mjs prettier.config.cjs package.json pnpm-workspace.yaml",
-		"check": "pnpm lint:js && pnpm format:check && node --test scripts/release-boundary.test.mjs"
+		"format:check": "prettier --check \"assets/**/*.{js,css}\" \"scripts/**/*.mjs\" \".github/scripts/**/*.mjs\" eslint.config.mjs prettier.config.cjs package.json pnpm-workspace.yaml",
+		"check": "pnpm lint:js && pnpm lint:css && pnpm format:check && node --test scripts/release-boundary.test.mjs",
+		"lint:css": "stylelint \"assets/**/*.css\""
 	},
 	"devDependencies": {
 		"@babel/core": "7.29.7",
-		"@rocketsarenostalgic/quality-config": "github:RocketsAreNostalgic/ran-quality-config#751edd097e3902efb93992bf47401a1a4f4b1fa8",
+		"@rocketsarenostalgic/quality-config": "github:RocketsAreNostalgic/ran-quality-config#3633371011f05dcea8bf8e13e2ca3005cb4e1d8f",
 		"@wordpress/eslint-plugin": "25.7.0",
 		"@wordpress/prettier-config": "4.51.0",
+		"@wordpress/stylelint-config": "26.1.0",
 		"eslint": "9.39.5",
 		"prettier": "3.9.5",
 		"react": "18.3.1",
-		"react-dom": "18.3.1"
+		"react-dom": "18.3.1",
+		"stylelint": "17.14.1",
+		"stylelint-scss": "7.2.0"
 	},
 	"engines": {
 		"node": ">=24.11.0 <25",

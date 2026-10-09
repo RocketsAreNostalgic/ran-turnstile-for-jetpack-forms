@@ -50,11 +50,12 @@ This repository uses the RAN `wordpress-plugin` quality profile.
   Standards, and PHPCompatibility ancestry. This repository continues to own
   its WordPress 6.5+ / PHP 8.0+ support range, source paths, text domain, and
   justified filename exceptions.
-- `@rocketsarenostalgic/quality-config` owns shared ESLint and Prettier ancestry.
-  This repository continues to own the JavaScript source globs, browser and Node
-  runtime globals, and generated-file formatting exclusions. There is no CSS
-  quality surface at present, so do not add Stylelint dependencies solely for
-  profile symmetry.
+- `@rocketsarenostalgic/quality-config` owns shared WordPress ESLint, Prettier
+  and CSS Stylelint ancestry. This repository owns JavaScript/CSS source globs,
+  browser and Node globals, and the BEM element class-name exception used by
+  its admin CSS. Generated `assets/ran-admin-shell.css` is excluded from frontend
+  lint/format checks and remains protected by the immutable Composer parity gate.
+  New first-party CSS under `assets/` enters both linting and formatting.
 - `composer check` is the deterministic standards, PHP syntax, syntax-regression and static-analysis contract consumed
   by the shared baseline. WordPress integration PHPUnit remains repository-owned.
 - `pnpm check` is the deterministic package-managed JavaScript/formatting quality
