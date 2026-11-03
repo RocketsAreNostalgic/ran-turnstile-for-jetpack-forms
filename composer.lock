@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d5768c5cfefbbd255293fe856dbf19eb",
+    "content-hash": "64d8f31f8a8b56f9906bad2922072119",
     "packages": [],
     "packages-dev": [
         {
@@ -1342,16 +1342,16 @@
         },
         {
             "name": "ran/admin-shell",
-            "version": "dev-main",
+            "version": "v1.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/RocketsAreNostalgic/ran-admin-shell.git",
-                "reference": "24d05d834ab73302dab29aa2671b8e1f7285af40"
+                "reference": "350909995871d11a7f8495bb2c5bfd041190b648"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/RocketsAreNostalgic/ran-admin-shell/zipball/24d05d834ab73302dab29aa2671b8e1f7285af40",
-                "reference": "24d05d834ab73302dab29aa2671b8e1f7285af40",
+                "url": "https://api.github.com/repos/RocketsAreNostalgic/ran-admin-shell/zipball/350909995871d11a7f8495bb2c5bfd041190b648",
+                "reference": "350909995871d11a7f8495bb2c5bfd041190b648",
                 "shasum": ""
             },
             "require": {
@@ -1370,7 +1370,6 @@
                 "phpunit/phpunit": "^9.6",
                 "ran/coding-standards": "^1.0"
             },
-            "default-branch": true,
             "bin": [
                 "bin/ran-admin-shell"
             ],
@@ -1408,10 +1407,10 @@
             ],
             "description": "Build-time admin-shell resources for Rockets Are Nostalgic WordPress plugins.",
             "support": {
-                "source": "https://github.com/RocketsAreNostalgic/ran-admin-shell/tree/main",
+                "source": "https://github.com/RocketsAreNostalgic/ran-admin-shell/tree/v1.0.0",
                 "issues": "https://github.com/RocketsAreNostalgic/ran-admin-shell/issues"
             },
-            "time": "2026-10-07T20:14:12+00:00"
+            "time": "2026-11-01T11:11:49+00:00"
         },
         {
             "name": "ran/coding-standards",
@@ -2791,7 +2790,6 @@
         "phpcompatibility/php-compatibility": 15,
         "phpcompatibility/phpcompatibility-paragonie": 15,
         "phpcompatibility/phpcompatibility-wp": 15,
-        "ran/admin-shell": 20,
         "ran/coding-standards": 20
     },
     "prefer-stable": false,

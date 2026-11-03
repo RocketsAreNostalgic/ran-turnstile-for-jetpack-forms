@@ -28,7 +28,7 @@
 		"phpcompatibility/phpcompatibility-wp": "3.0.0-alpha2",
 		"phpstan/phpstan": "^2.1",
 		"phpunit/phpunit": "^9.6",
-		"ran/admin-shell": "dev-main",
+		"ran/admin-shell": "1.0.0",
 		"ran/coding-standards": "dev-main",
 		"wp-phpunit/wp-phpunit": "^6.5",
 		"yoast/phpunit-polyfills": "^3.1"
@@ -37,6 +37,7 @@
 		"admin-shell:check": "ran-admin-shell check --config=ran-admin-shell.json --immutable",
 		"admin-shell:sync": "ran-admin-shell sync --config=ran-admin-shell.json",
 		"check": [
+			"@admin-shell:check",
 			"@standards",
 			"@lint:syntax",
 			"@test:quality",
